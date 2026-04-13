@@ -1,0 +1,5 @@
+Dette er en kort prøvefil for Leseapp. Målet er ikke at teksten skal være viktig. Målet er at rytmen skal være enkel å teste.
+
+Når du starter lesingen, skal det første ordet bli stående litt lenger. Deretter går appen videre med jevn fart, små pauser ved setningsslutt, og litt ekstra tid på lengre ord.
+
+Hvis du mister tråden, kan du pause. Da skal avsnittet rundt det siste ordet vises under, slik at du raskt kan finne tilbake til meningen.

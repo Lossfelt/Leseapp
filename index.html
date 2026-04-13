@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Leseapp Prototype</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero">
+        <p class="eyebrow">Leseapp prototype</p>
+        <h1>Les ett ord av gangen i fast posisjon.</h1>
+        <p class="lead">
+          Åpne en <code>.txt</code>-fil og test hurtiglesing med pause, kontekst og
+          lokal progresjon per tekst.
+        </p>
+      </section>
+
+      <section class="control-panel">
+        <div class="file-card">
+          <label class="file-picker" for="fileInput">Velg tekstfil</label>
+          <input id="fileInput" type="file" accept=".txt,text/plain" />
+          <p id="fileMeta" class="muted">Ingen fil valgt ennå.</p>
+        </div>
+
+        <div class="speed-card">
+          <div class="speed-header">
+            <span>Hastighet</span>
+            <strong id="speedValue">320 WPM</strong>
+          </div>
+          <input
+            id="speedSlider"
+            type="range"
+            min="120"
+            max="900"
+            value="320"
+            step="10"
+            aria-label="Juster lesehastighet"
+          />
+          <p class="muted">
+            Tips: trykk kort på <code>Space</code> for start/pause, eller hold
+            <code>Space</code> inne for å lese så lenge tasten holdes nede.
+          </p>
+          <label class="toggle-row" for="longWordToggle">
+            <span>Ekstra tid på lange ord</span>
+            <input id="longWordToggle" type="checkbox" checked />
+          </label>
+        </div>
+      </section>
+
+      <section class="reader-card">
+        <div class="reader-meta">
+          <p id="statusText" class="status-pill">Last inn en tekst for å starte.</p>
+          <p id="progressText" class="progress-text">0 / 0 ord</p>
+        </div>
+
+        <div class="reader-stage" aria-live="polite">
+          <div class="focus-guide"></div>
+          <p id="wordDisplay" class="word-display">Klar</p>
+        </div>
+
+        <div class="primary-actions">
+          <button id="playButton" class="play-button" type="button" disabled>
+            Start / Pause
+          </button>
+        </div>
+      </section>
+
+      <section id="contextPanel" class="context-card is-empty">
+        <div class="context-header">
+          <div>
+            <p class="eyebrow">Kontekst</p>
+            <h2>Avsnittet rundt siste ord</h2>
+          </div>
+          <p id="contextHint" class="muted">
+            Panelet fylles når du åpner en tekst og pauser lesingen.
+          </p>
+        </div>
+        <div id="contextBody" class="context-body"></div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
