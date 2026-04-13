@@ -2,10 +2,9 @@ const STORAGE_PREFIX = "leseapp-progress-v1";
 const DEFAULT_WPM = 320;
 const STARTUP_PREVIEW_MS = 1000;
 const HOLD_THRESHOLD_MS = 180;
-const DEFAULT_LONG_WORD_BONUS_ENABLED = true;
 const EXPANDED_CONTEXT_CHUNK_SIZE = 24;
-const LONG_WORD_BONUS_MULTIPLIER = 0.18;
-const VERY_LONG_WORD_BONUS_MULTIPLIER = 0.24;
+const LONG_WORD_BONUS_MULTIPLIER = 0.28;
+const VERY_LONG_WORD_BONUS_MULTIPLIER = 0.38;
 const SENTENCE_END_BONUS_MULTIPLIER = 0.72;
 const PARAGRAPH_END_BONUS_MULTIPLIER = 1.35;
 
@@ -17,18 +16,17 @@ const state = {
   currentIndex: 0,
   errorMessage: "",
   fileKey: "",
-  fileLabel: "",
   ignoreNextButtonClick: false,
   isLoading: false,
   isPlaying: false,
   isPreviewing: false,
-  longWordBonusEnabled: DEFAULT_LONG_WORD_BONUS_ENABLED,
   paragraphs: [],
   pointerHoldActive: false,
   pointerHoldTimer: null,
   pointerId: null,
   progressOriginLabel: "",
   reachedEnd: false,
+  sections: [],
   spaceDown: false,
   spaceHoldActive: false,
   spaceHoldTimer: null,
@@ -44,9 +42,11 @@ const elements = {
   contextToggle: document.querySelector("#contextToggle"),
   fileInput: document.querySelector("#fileInput"),
   fileMeta: document.querySelector("#fileMeta"),
-  longWordToggle: document.querySelector("#longWordToggle"),
+  nextSectionButton: document.querySelector("#nextSectionButton"),
   playButton: document.querySelector("#playButton"),
+  prevSectionButton: document.querySelector("#prevSectionButton"),
   progressText: document.querySelector("#progressText"),
+  sectionLabel: document.querySelector("#sectionLabel"),
   speedSlider: document.querySelector("#speedSlider"),
   speedValue: document.querySelector("#speedValue"),
   statusText: document.querySelector("#statusText"),
@@ -56,17 +56,17 @@ const elements = {
 function init() {
   elements.speedSlider.value = String(DEFAULT_WPM);
   elements.speedValue.textContent = `${DEFAULT_WPM} WPM`;
-  elements.longWordToggle.checked = DEFAULT_LONG_WORD_BONUS_ENABLED;
 
-  elements.fileInput.addEventListener("change", handleFileSelection);
   elements.contextBody.addEventListener("click", handleContextBodyClick);
   elements.contextToggle.addEventListener("click", handleContextToggleClick);
-  elements.longWordToggle.addEventListener("change", handleLongWordToggleChange);
+  elements.fileInput.addEventListener("change", handleFileSelection);
+  elements.nextSectionButton.addEventListener("click", () => jumpToAdjacentSection(1));
   elements.playButton.addEventListener("click", handlePlayButtonClick);
   elements.playButton.addEventListener("pointercancel", handlePlayButtonPointerUp);
   elements.playButton.addEventListener("pointerdown", handlePlayButtonPointerDown);
   elements.playButton.addEventListener("pointerleave", handlePlayButtonPointerLeave);
   elements.playButton.addEventListener("pointerup", handlePlayButtonPointerUp);
+  elements.prevSectionButton.addEventListener("click", () => jumpToAdjacentSection(-1));
   elements.speedSlider.addEventListener("input", handleSpeedChange);
 
   document.addEventListener("keydown", handleSpaceKeyDown);
@@ -85,7 +85,6 @@ async function handleFileSelection(event) {
   pausePlayback({ showContext: false });
   resetDocument();
   state.isLoading = true;
-  setStatus("Laster fil...", "loading");
   render();
 
   try {
@@ -122,28 +121,25 @@ async function loadDocumentFile(file) {
 }
 
 function applyLoadedDocument(file, result) {
-  const { model } = result;
   const saved = loadProgress(makeFileKey(file));
+  const { model } = result;
 
-  state.currentIndex = clampIndex(saved?.currentIndex ?? 0, model.words.length);
   state.contextExpanded = false;
   state.contextRangeStart = 0;
   state.contextRangeEnd = 0;
   state.contextScrollToCurrent = true;
+  state.currentIndex = clampIndex(saved?.currentIndex ?? 0, model.words.length);
   state.errorMessage = "";
   state.fileKey = makeFileKey(file);
-  state.fileLabel = file.name;
-  state.longWordBonusEnabled =
-    saved?.longWordBonusEnabled ?? DEFAULT_LONG_WORD_BONUS_ENABLED;
   state.paragraphs = model.paragraphs;
   state.progressOriginLabel = result.originLabel;
   state.reachedEnd = false;
+  state.sections = model.sections ?? [];
   state.words = model.words;
   state.wpm = clampWpm(saved?.wpm ?? DEFAULT_WPM);
 
-  elements.longWordToggle.checked = state.longWordBonusEnabled;
-  elements.playButton.disabled = !state.words.length;
   elements.contextToggle.disabled = !state.words.length;
+  elements.playButton.disabled = !state.words.length;
   elements.speedSlider.value = String(state.wpm);
   elements.speedValue.textContent = `${state.wpm} WPM`;
 
@@ -171,23 +167,20 @@ function handleSpeedChange(event) {
   renderStatus();
 }
 
-function handleLongWordToggleChange(event) {
-  state.longWordBonusEnabled = event.target.checked;
-  saveProgress();
-}
-
 function handleContextToggleClick() {
   if (!hasLoadedText()) {
     return;
   }
 
   state.contextExpanded = !state.contextExpanded;
+
   if (state.contextExpanded) {
     initializeExpandedContextRange(getCurrentParagraphIndex());
     state.contextScrollToCurrent = true;
   } else {
     state.contextScrollToCurrent = false;
   }
+
   renderContext();
 }
 
@@ -205,26 +198,7 @@ function handleContextBodyClick(event) {
     return;
   }
 
-  const nextIndex = Number(wordButton.dataset.wordIndex);
-
-  if (!Number.isFinite(nextIndex)) {
-    return;
-  }
-
-  if (state.isPlaying) {
-    pausePlayback({ showContext: false });
-  }
-
-  state.currentIndex = clampIndex(nextIndex, state.words.length);
-  if (state.contextExpanded) {
-    ensureCurrentParagraphInExpandedRange();
-    state.contextScrollToCurrent = false;
-  } else {
-    state.contextScrollToCurrent = true;
-  }
-  state.reachedEnd = false;
-  saveProgress();
-  render();
+  jumpToWordIndex(Number(wordButton.dataset.wordIndex), { keepExpandedContext: state.contextExpanded });
   setStatus("Ny leseplass valgt. Trykk start når du vil fortsette.", "normal");
 }
 
@@ -248,9 +222,7 @@ function handleExpandedContextPaging(direction) {
   }
 
   renderContext();
-
-  const anchorIndex = direction === "prev" ? previousStart : previousEnd - 1;
-  scrollParagraphIntoView(anchorIndex, direction === "prev" ? "start" : "end");
+  scrollParagraphIntoView(direction === "prev" ? previousStart : previousEnd - 1, direction === "prev" ? "start" : "end");
 }
 
 function handlePlayButtonClick() {
@@ -358,6 +330,48 @@ function handleSpaceKeyUp(event) {
   togglePlayback();
 }
 
+function jumpToAdjacentSection(direction) {
+  if (!state.sections.length) {
+    return;
+  }
+
+  const currentSectionIndex = getCurrentSectionIndex();
+  const targetIndex = currentSectionIndex + direction;
+
+  if (targetIndex < 0 || targetIndex >= state.sections.length) {
+    return;
+  }
+
+  jumpToWordIndex(state.sections[targetIndex].wordIndex, { keepExpandedContext: false });
+  setStatus(`Hoppet til ${state.sections[targetIndex].label}.`, "normal");
+}
+
+function jumpToWordIndex(nextIndex, { keepExpandedContext } = {}) {
+  if (!Number.isFinite(nextIndex) || !hasLoadedText()) {
+    return;
+  }
+
+  if (state.isPlaying) {
+    pausePlayback({ showContext: false });
+  }
+
+  state.currentIndex = clampIndex(nextIndex, state.words.length);
+  state.reachedEnd = false;
+
+  if (keepExpandedContext) {
+    ensureCurrentParagraphInExpandedRange();
+    state.contextScrollToCurrent = false;
+  } else {
+    state.contextExpanded = false;
+    state.contextRangeStart = 0;
+    state.contextRangeEnd = 0;
+    state.contextScrollToCurrent = true;
+  }
+
+  saveProgress();
+  render();
+}
+
 function togglePlayback() {
   if (!hasLoadedText()) {
     return;
@@ -434,14 +448,12 @@ function getWordDelay(word) {
   const baseDelay = 60000 / state.wpm;
   let extraDelay = 0;
 
-  if (state.longWordBonusEnabled) {
-    if (word.raw.length >= 9) {
-      extraDelay += scaledPause(baseDelay, LONG_WORD_BONUS_MULTIPLIER, 18, 85);
-    }
+  if (word.raw.length >= 9) {
+    extraDelay += scaledPause(baseDelay, LONG_WORD_BONUS_MULTIPLIER, 24, 120);
+  }
 
-    if (word.raw.length >= 13) {
-      extraDelay += scaledPause(baseDelay, VERY_LONG_WORD_BONUS_MULTIPLIER, 24, 120);
-    }
+  if (word.raw.length >= 13) {
+    extraDelay += scaledPause(baseDelay, VERY_LONG_WORD_BONUS_MULTIPLIER, 34, 170);
   }
 
   if (/[.!?][)"'\]]*$/.test(word.raw)) {
@@ -462,21 +474,24 @@ function scaledPause(baseDelay, multiplier, min, max) {
 function resetDocument() {
   clearPlaybackTimer();
   state.contextExpanded = false;
-  state.contextRangeStart = 0;
   state.contextRangeEnd = 0;
+  state.contextRangeStart = 0;
   state.contextScrollToCurrent = false;
   state.currentIndex = 0;
   state.errorMessage = "";
   state.fileKey = "";
-  state.fileLabel = "";
   state.isPlaying = false;
   state.isPreviewing = false;
   state.paragraphs = [];
   state.progressOriginLabel = "";
   state.reachedEnd = false;
+  state.sections = [];
   state.words = [];
+
   elements.contextToggle.disabled = true;
+  elements.nextSectionButton.disabled = true;
   elements.playButton.disabled = true;
+  elements.prevSectionButton.disabled = true;
 }
 
 function makeFileKey(file) {
@@ -502,7 +517,6 @@ function saveProgress() {
       state.fileKey,
       JSON.stringify({
         currentIndex: state.currentIndex,
-        longWordBonusEnabled: state.longWordBonusEnabled,
         updatedAt: Date.now(),
         wpm: state.wpm,
       }),
@@ -551,9 +565,12 @@ function render() {
   renderStatus();
   renderWord();
   renderProgress();
+  renderSectionNav();
+
   if (!state.isPlaying) {
     renderContext();
   }
+
   updateHeldVisualState();
 }
 
@@ -584,7 +601,6 @@ function renderStatus() {
   }
 
   if (state.reachedEnd) {
-    state.contextScrollToCurrent = true;
     setStatus("Teksten er ferdig lest.", "normal");
     return;
   }
@@ -614,6 +630,23 @@ function renderProgress() {
     `${current} / ${total} ord · ${Math.round((current / total) * 100)}%`;
 }
 
+function renderSectionNav() {
+  if (!state.sections.length) {
+    elements.prevSectionButton.disabled = true;
+    elements.nextSectionButton.disabled = true;
+    elements.sectionLabel.textContent = "Ingen kapitler funnet.";
+    return;
+  }
+
+  const currentSectionIndex = getCurrentSectionIndex();
+  const currentSection = state.sections[currentSectionIndex];
+
+  elements.prevSectionButton.disabled = currentSectionIndex <= 0;
+  elements.nextSectionButton.disabled = currentSectionIndex >= state.sections.length - 1;
+  elements.sectionLabel.textContent =
+    `${currentSection.label} · ${currentSectionIndex + 1} / ${state.sections.length}`;
+}
+
 function renderContext() {
   elements.contextBody.textContent = "";
 
@@ -626,13 +659,11 @@ function renderContext() {
     return;
   }
 
-  const word = state.words[state.currentIndex];
-  const currentParagraphIndex = getCurrentParagraphIndex();
-
   if (state.contextExpanded) {
     ensureCurrentParagraphInExpandedRange();
   }
 
+  const currentParagraphIndex = getCurrentParagraphIndex();
   elements.contextPanel.classList.remove("is-empty");
   elements.contextPanel.classList.toggle("is-expanded", state.contextExpanded);
   elements.contextHint.textContent = state.contextExpanded
@@ -707,27 +738,6 @@ function formatErrorMessage(error) {
   return error instanceof Error ? error.message : "Ukjent feil ved åpning av filen.";
 }
 
-function scrollCurrentWordIntoView() {
-  if (!state.contextScrollToCurrent) {
-    return;
-  }
-
-  const currentWord = elements.contextBody.querySelector(".context-word.is-current");
-
-  if (!currentWord) {
-    return;
-  }
-
-  state.contextScrollToCurrent = false;
-
-  requestAnimationFrame(() => {
-    currentWord.scrollIntoView({
-      block: state.contextExpanded ? "center" : "nearest",
-      inline: "nearest",
-    });
-  });
-}
-
 function initializeExpandedContextRange(centerParagraphIndex) {
   const start = Math.max(0, centerParagraphIndex - Math.floor(EXPANDED_CONTEXT_CHUNK_SIZE / 2));
   const end = Math.min(state.paragraphs.length, start + EXPANDED_CONTEXT_CHUNK_SIZE);
@@ -752,11 +762,28 @@ function getCurrentParagraphIndex() {
   return hasLoadedText() ? state.words[state.currentIndex].paragraphIndex : 0;
 }
 
+function getCurrentSectionIndex() {
+  if (!state.sections.length) {
+    return -1;
+  }
+
+  let currentSectionIndex = 0;
+
+  for (let index = 0; index < state.sections.length; index += 1) {
+    if (state.sections[index].wordIndex <= state.currentIndex) {
+      currentSectionIndex = index;
+    } else {
+      break;
+    }
+  }
+
+  return currentSectionIndex;
+}
+
 function buildExpandedContextHint() {
   return (
     `${state.progressOriginLabel} · avsnitt ${state.contextRangeStart + 1}` +
-    `-${state.contextRangeEnd} av ${state.paragraphs.length}. ` +
-    "Trykk på et ord for å velge ny startplass."
+    `-${state.contextRangeEnd} av ${state.paragraphs.length}`
   );
 }
 
@@ -769,7 +796,28 @@ function createContextPager(direction, label) {
   return button;
 }
 
-function scrollParagraphIntoView(paragraphIndex, block = "nearest") {
+function scrollCurrentWordIntoView() {
+  if (!state.contextScrollToCurrent) {
+    return;
+  }
+
+  const currentWord = elements.contextBody.querySelector(".context-word.is-current");
+
+  if (!currentWord) {
+    return;
+  }
+
+  state.contextScrollToCurrent = false;
+
+  requestAnimationFrame(() => {
+    currentWord.scrollIntoView({
+      block: state.contextExpanded ? "center" : "nearest",
+      inline: "nearest",
+    });
+  });
+}
+
+function scrollParagraphIntoView(paragraphIndex, block) {
   requestAnimationFrame(() => {
     const paragraph = elements.contextBody.querySelector(
       `[data-paragraph-index="${paragraphIndex}"]`,

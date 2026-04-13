@@ -12,12 +12,6 @@
     "figcaption",
     "figure",
     "footer",
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "h5",
-    "h6",
     "header",
     "li",
     "main",
@@ -35,6 +29,7 @@
     "tr",
     "ul",
   ]);
+  const HEADING_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6"]);
   const SKIP_TAGS = new Set(["audio", "img", "math", "noscript", "script", "style", "svg", "video"]);
   const XHTML_TYPES = new Set([
     "application/xhtml+xml",
@@ -53,14 +48,16 @@
     const metadata = extractMetadata(packageDoc);
     const manifest = buildManifest(packageDoc, packagePath);
     const spinePaths = buildSpinePaths(packageDoc, manifest);
-    const paragraphTexts = [];
+    const paragraphEntries = [];
 
     for (const path of spinePaths) {
       const contentMarkup = await readZipText(zip, path);
-      paragraphTexts.push(...extractParagraphTexts(contentMarkup));
+      paragraphEntries.push(...extractParagraphEntries(contentMarkup));
     }
 
-    const model = window.LeseappReadingModel.createModelFromParagraphs(paragraphTexts);
+    const model = window.LeseappReadingModel.createModelFromParagraphs(paragraphEntries, {
+      detectSections: false,
+    });
 
     if (!model.words.length) {
       throw new Error("Fant ingen lesbar tekst i EPUB-filen.");
@@ -114,19 +111,13 @@
       const idref = itemref.getAttribute("idref");
       const manifestItem = manifest.get(idref);
 
-      if (!manifestItem) {
+      if (!manifestItem || manifestItem.properties.includes("nav")) {
         return;
       }
 
-      if (manifestItem.properties.includes("nav")) {
-        return;
+      if (isReadingMarkup(manifestItem.href, manifestItem.mediaType)) {
+        paths.push(manifestItem.href);
       }
-
-      if (!isReadingMarkup(manifestItem.href, manifestItem.mediaType)) {
-        return;
-      }
-
-      paths.push(manifestItem.href);
     });
 
     if (!paths.length) {
@@ -142,25 +133,16 @@
     };
   }
 
-  function extractParagraphTexts(markup) {
+  function extractParagraphEntries(markup) {
     const doc = parseMarkupDocument(markup);
     const body = doc.querySelector("body") ?? doc.documentElement;
-    const paragraphs = [];
-    const current = [];
-
-    collectParagraphs(body, paragraphs, current);
-    flushParagraph(paragraphs, current);
-
-    return paragraphs;
+    const entries = [];
+    collectEntries(body, entries);
+    return entries;
   }
 
-  function collectParagraphs(node, paragraphs, current) {
+  function collectEntries(node, entries) {
     for (const child of node.childNodes) {
-      if (child.nodeType === Node.TEXT_NODE) {
-        current.push(child.textContent ?? "");
-        continue;
-      }
-
       if (child.nodeType !== Node.ELEMENT_NODE) {
         continue;
       }
@@ -171,30 +153,51 @@
         continue;
       }
 
-      if (tag === "br") {
-        flushParagraph(paragraphs, current);
+      if (HEADING_TAGS.has(tag)) {
+        pushEntry(entries, {
+          sectionLabel: child.textContent ?? "",
+          text: child.textContent ?? "",
+        });
         continue;
       }
 
       if (BLOCK_TAGS.has(tag)) {
-        flushParagraph(paragraphs, current);
-        const nestedCurrent = [];
-        collectParagraphs(child, paragraphs, nestedCurrent);
-        flushParagraph(paragraphs, nestedCurrent);
+        const text = extractTextFromNode(child);
+
+        if (text) {
+          pushEntry(entries, { text });
+        } else {
+          collectEntries(child, entries);
+        }
+
         continue;
       }
 
-      collectParagraphs(child, paragraphs, current);
+      collectEntries(child, entries);
     }
   }
 
-  function flushParagraph(paragraphs, current) {
-    const text = window.LeseappReadingModel.normalizeWhitespace(current.join(" "));
-    current.length = 0;
+  function pushEntry(entries, entry) {
+    const text = window.LeseappReadingModel.normalizeWhitespace(entry.text ?? "");
 
-    if (text) {
-      paragraphs.push(text);
+    if (!text) {
+      return;
     }
+
+    entries.push({
+      sectionLabel: window.LeseappReadingModel.normalizeWhitespace(entry.sectionLabel ?? ""),
+      text,
+    });
+  }
+
+  function extractTextFromNode(node) {
+    const clone = node.cloneNode(true);
+
+    clone.querySelectorAll("br").forEach((br) => {
+      br.replaceWith(" ");
+    });
+
+    return clone.textContent ?? "";
   }
 
   function parseMarkupDocument(markup) {

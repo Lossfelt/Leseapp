@@ -3,18 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Leseapp Prototype</title>
+    <title>Leseapp</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="app-shell">
       <section class="hero">
-        <p class="eyebrow">Leseapp prototype</p>
-        <h1>Les ett ord av gangen i fast posisjon.</h1>
-        <p class="lead">
-          Åpne en <code>.txt</code>- eller <code>.epub</code>-fil og test hurtiglesing
-          med pause, kontekst og lokal progresjon per tekst.
-        </p>
+        <h1 class="app-title">Leseapp</h1>
       </section>
 
       <section class="control-panel">
@@ -42,14 +37,6 @@
             step="10"
             aria-label="Juster lesehastighet"
           />
-          <p class="muted">
-            Tips: trykk kort på <code>Space</code> for start/pause, eller hold
-            <code>Space</code> inne for å lese så lenge tasten holdes nede.
-          </p>
-          <label class="toggle-row" for="longWordToggle">
-            <span>Ekstra tid på lange ord</span>
-            <input id="longWordToggle" type="checkbox" checked />
-          </label>
         </div>
       </section>
 
@@ -67,6 +54,16 @@
         <div class="primary-actions">
           <button id="playButton" class="play-button" type="button" disabled>
             Start / Pause
+          </button>
+        </div>
+
+        <div class="chapter-nav">
+          <button id="prevSectionButton" class="secondary-button" type="button" disabled>
+            Forrige kapittel
+          </button>
+          <p id="sectionLabel" class="section-label">Ingen kapitler funnet ennå.</p>
+          <button id="nextSectionButton" class="secondary-button" type="button" disabled>
+            Neste kapittel
           </button>
         </div>
       </section>

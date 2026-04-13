@@ -20,12 +20,13 @@ Den nåværende versjonen støtter:
 - hold-for-lesing med mus
 - hold-for-lesing med `Space`
 - justerbar hastighet i `WPM`
+- hopp til forrige og neste kapittel når teksten har kapitler
 - automatisk kontekstpanel ved pause
 - utvidbart tekstvindu for å bla i teksten før start
 - klikkbare ord i tekstvinduet for å velge ny leseplass
 - markering av gjeldende ord i kontekstpanelet
 - lokal lagring av hastighet, posisjon og innstillinger per fil
-- valgfri ekstra tid på lange ord
+- ekstra tid på lange ord
 - offline bruk uten byggesteg
 
 ## Hvorfor kontekstpanelet finnes
@@ -64,6 +65,7 @@ Det betyr at Netlify kan publisere direkte fra repo-roten.
 - Trykk kort `Space` for start/pause
 - Hold inne `Space` for å lese bare mens tasten holdes inne
 - Juster hastigheten med slideren
+- Bruk kapittelknappene for å hoppe mellom kapitler når de finnes
 - Slipp knapp eller `Space` for å pause og vise kontekstpanelet
 - Utvid tekstvinduet og trykk på et ord for å hoppe til ny startplass
 
