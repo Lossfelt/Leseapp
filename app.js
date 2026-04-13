@@ -27,6 +27,7 @@ const state = {
   progressOriginLabel: "",
   reachedEnd: false,
   sections: [],
+  speedControlsExpanded: false,
   spaceDown: false,
   spaceHoldActive: false,
   spaceHoldTimer: null,
@@ -42,12 +43,16 @@ const elements = {
   contextToggle: document.querySelector("#contextToggle"),
   fileInput: document.querySelector("#fileInput"),
   fileMeta: document.querySelector("#fileMeta"),
+  nextWordDisplay: document.querySelector("#nextWordDisplay"),
   nextSectionButton: document.querySelector("#nextSectionButton"),
   playButton: document.querySelector("#playButton"),
   prevSectionButton: document.querySelector("#prevSectionButton"),
+  prevWordDisplay: document.querySelector("#prevWordDisplay"),
   progressText: document.querySelector("#progressText"),
   sectionLabel: document.querySelector("#sectionLabel"),
+  speedControls: document.querySelector("#speedControls"),
   speedSlider: document.querySelector("#speedSlider"),
+  speedToggle: document.querySelector("#speedToggle"),
   speedValue: document.querySelector("#speedValue"),
   statusText: document.querySelector("#statusText"),
   wordDisplay: document.querySelector("#wordDisplay"),
@@ -68,6 +73,7 @@ function init() {
   elements.playButton.addEventListener("pointerup", handlePlayButtonPointerUp);
   elements.prevSectionButton.addEventListener("click", () => jumpToAdjacentSection(-1));
   elements.speedSlider.addEventListener("input", handleSpeedChange);
+  elements.speedToggle.addEventListener("click", handleSpeedToggleClick);
 
   document.addEventListener("keydown", handleSpaceKeyDown);
   document.addEventListener("keyup", handleSpaceKeyUp);
@@ -101,11 +107,13 @@ async function handleFileSelection(event) {
 }
 
 async function loadDocumentFile(file) {
+  const fileKey = await createStableFileKey(file);
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
 
   if (extension === "epub") {
     const result = await window.LeseappEpub.loadFile(file);
     return {
+      fileKey,
       ...result,
       originLabel: result.metadata.title || file.name,
     };
@@ -113,6 +121,7 @@ async function loadDocumentFile(file) {
 
   const text = await file.text();
   return {
+    fileKey,
     format: "txt",
     metadata: {},
     model: window.LeseappReadingModel.createModelFromText(text),
@@ -121,7 +130,7 @@ async function loadDocumentFile(file) {
 }
 
 function applyLoadedDocument(file, result) {
-  const saved = loadProgress(makeFileKey(file));
+  const saved = loadProgress(result.fileKey);
   const { model } = result;
 
   state.contextExpanded = false;
@@ -130,7 +139,7 @@ function applyLoadedDocument(file, result) {
   state.contextScrollToCurrent = true;
   state.currentIndex = clampIndex(saved?.currentIndex ?? 0, model.words.length);
   state.errorMessage = "";
-  state.fileKey = makeFileKey(file);
+  state.fileKey = result.fileKey;
   state.paragraphs = model.paragraphs;
   state.progressOriginLabel = result.originLabel;
   state.reachedEnd = false;
@@ -165,6 +174,11 @@ function handleSpeedChange(event) {
   elements.speedValue.textContent = `${state.wpm} WPM`;
   saveProgress();
   renderStatus();
+}
+
+function handleSpeedToggleClick() {
+  state.speedControlsExpanded = !state.speedControlsExpanded;
+  renderSpeedControls();
 }
 
 function handleContextToggleClick() {
@@ -486,16 +500,13 @@ function resetDocument() {
   state.progressOriginLabel = "";
   state.reachedEnd = false;
   state.sections = [];
+  state.speedControlsExpanded = false;
   state.words = [];
 
   elements.contextToggle.disabled = true;
   elements.nextSectionButton.disabled = true;
   elements.playButton.disabled = true;
   elements.prevSectionButton.disabled = true;
-}
-
-function makeFileKey(file) {
-  return `${STORAGE_PREFIX}:${file.name}:${file.size}:${file.lastModified}`;
 }
 
 function loadProgress(fileKey) {
@@ -565,6 +576,7 @@ function render() {
   renderStatus();
   renderWord();
   renderProgress();
+  renderSpeedControls();
   renderSectionNav();
 
   if (!state.isPlaying) {
@@ -615,7 +627,16 @@ function setStatus(message, tone) {
 }
 
 function renderWord() {
-  elements.wordDisplay.textContent = hasLoadedText() ? state.words[state.currentIndex].raw : "Klar";
+  if (!hasLoadedText()) {
+    elements.prevWordDisplay.textContent = "";
+    elements.wordDisplay.textContent = "Klar";
+    elements.nextWordDisplay.textContent = "";
+    return;
+  }
+
+  elements.prevWordDisplay.textContent = state.words[state.currentIndex - 1]?.raw ?? "";
+  elements.wordDisplay.textContent = state.words[state.currentIndex].raw;
+  elements.nextWordDisplay.textContent = state.words[state.currentIndex + 1]?.raw ?? "";
 }
 
 function renderProgress() {
@@ -645,6 +666,10 @@ function renderSectionNav() {
   elements.nextSectionButton.disabled = currentSectionIndex >= state.sections.length - 1;
   elements.sectionLabel.textContent =
     `${currentSection.label} · ${currentSectionIndex + 1} / ${state.sections.length}`;
+}
+
+function renderSpeedControls() {
+  elements.speedControls.classList.toggle("is-collapsed", !state.speedControlsExpanded);
 }
 
 function renderContext() {
@@ -827,6 +852,22 @@ function scrollParagraphIntoView(paragraphIndex, block) {
       paragraph.scrollIntoView({ block, inline: "nearest" });
     }
   });
+}
+
+async function createStableFileKey(file) {
+  const prefix = `${STORAGE_PREFIX}:${file.name}:${file.size}`;
+
+  try {
+    const slice = await file.slice(0, 65536).arrayBuffer();
+    const digest = await crypto.subtle.digest("SHA-256", slice);
+    const hash = Array.from(new Uint8Array(digest))
+      .slice(0, 12)
+      .map((value) => value.toString(16).padStart(2, "0"))
+      .join("");
+    return `${prefix}:${hash}`;
+  } catch {
+    return prefix;
+  }
 }
 
 init();

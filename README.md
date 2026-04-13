@@ -20,6 +20,7 @@ Den nåværende versjonen støtter:
 - hold-for-lesing med mus
 - hold-for-lesing med `Space`
 - justerbar hastighet i `WPM`
+- skjult WPM-slider som åpnes ved trykk
 - hopp til forrige og neste kapittel når teksten har kapitler
 - automatisk kontekstpanel ved pause
 - utvidbart tekstvindu for å bla i teksten før start
@@ -65,9 +66,16 @@ Det betyr at Netlify kan publisere direkte fra repo-roten.
 - Trykk kort `Space` for start/pause
 - Hold inne `Space` for å lese bare mens tasten holdes inne
 - Juster hastigheten med slideren
+- Trykk på `WPM` for å åpne eller skjule slideren
 - Bruk kapittelknappene for å hoppe mellom kapitler når de finnes
 - Slipp knapp eller `Space` for å pause og vise kontekstpanelet
 - Utvid tekstvinduet og trykk på et ord for å hoppe til ny startplass
+
+## Om lagring av posisjon
+
+Appen lagrer leseplass og hastighet lokalt for samme fil, slik at du kan velge den samme boken på nytt og fortsette der du slapp.
+
+Av sikkerhetsgrunner kan ikke nettleseren automatisk åpne lokale filer igjen etter refresh eller ny sesjon. Filen må derfor fortsatt velges på nytt, men progresjonen bør da lastes inn automatisk.
 
 ## EPUB-støtte
 

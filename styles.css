@@ -83,7 +83,7 @@ code {
 
 .control-panel {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.2fr) minmax(150px, 0.8fr);
   gap: 16px;
   margin-bottom: 18px;
 }
@@ -149,6 +149,27 @@ code {
   font-weight: 700;
 }
 
+.speed-toggle {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.speed-controls {
+  overflow: hidden;
+  max-height: 72px;
+  opacity: 1;
+  transition: max-height 180ms ease, opacity 180ms ease, margin-top 180ms ease;
+}
+
+.speed-controls.is-collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
 #speedSlider {
   width: 100%;
   accent-color: var(--accent);
@@ -197,8 +218,9 @@ code {
 
 .reader-stage {
   position: relative;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 340px;
   margin-top: 20px;
   border: 1px solid var(--border);
@@ -224,17 +246,45 @@ code {
   pointer-events: none;
 }
 
-.word-display {
+.word-stack {
   position: relative;
   z-index: 1;
-  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: 100%;
   padding: 0 24px;
+}
+
+.ghost-word,
+.word-display {
+  position: relative;
+  margin: 0;
   text-align: center;
   font-family: var(--font-reading);
-  font-size: clamp(2.5rem, 7vw, 5.8rem);
-  line-height: 1.08;
-  letter-spacing: -0.04em;
   word-break: break-word;
+}
+
+.word-display {
+  font-size: clamp(2.15rem, 5.8vw, 4.7rem);
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+
+.ghost-word {
+  min-height: 1.5em;
+  max-width: 90%;
+  font-size: clamp(1rem, 2.6vw, 1.7rem);
+  line-height: 1.15;
+  color: rgba(36, 28, 20, 0.28);
+}
+
+.ghost-word-top {
+  transform: translateY(2px);
+}
+
+.ghost-word-bottom {
+  transform: translateY(-2px);
 }
 
 .primary-actions {
@@ -448,12 +498,15 @@ code {
     padding-top: 24px;
   }
 
-  .control-panel,
   .reader-meta,
   .context-header {
     grid-template-columns: 1fr;
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .control-panel {
+    grid-template-columns: minmax(0, 1fr) 140px;
   }
 
   .reader-stage {

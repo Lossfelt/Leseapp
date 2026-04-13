@@ -24,19 +24,21 @@
         </div>
 
         <div class="speed-card">
-          <div class="speed-header">
+          <button id="speedToggle" class="speed-header speed-toggle" type="button">
             <span>Hastighet</span>
             <strong id="speedValue">320 WPM</strong>
+          </button>
+          <div id="speedControls" class="speed-controls is-collapsed">
+            <input
+              id="speedSlider"
+              type="range"
+              min="120"
+              max="900"
+              value="320"
+              step="10"
+              aria-label="Juster lesehastighet"
+            />
           </div>
-          <input
-            id="speedSlider"
-            type="range"
-            min="120"
-            max="900"
-            value="320"
-            step="10"
-            aria-label="Juster lesehastighet"
-          />
         </div>
       </section>
 
@@ -48,7 +50,11 @@
 
         <div class="reader-stage" aria-live="polite">
           <div class="focus-guide"></div>
-          <p id="wordDisplay" class="word-display">Klar</p>
+          <div class="word-stack">
+            <p id="prevWordDisplay" class="ghost-word ghost-word-top"></p>
+            <p id="wordDisplay" class="word-display">Klar</p>
+            <p id="nextWordDisplay" class="ghost-word ghost-word-bottom"></p>
+          </div>
         </div>
 
         <div class="primary-actions">
