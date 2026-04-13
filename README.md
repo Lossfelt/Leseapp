@@ -47,6 +47,16 @@ python3 -m http.server 8765
 
 Åpne deretter `http://localhost:8765/`.
 
+## Deploy til Netlify
+
+Appen er en ren statisk side og trenger ikke noen build-kommando.
+
+Repoet inneholder [netlify.toml](./netlify.toml) med:
+
+- `publish = "."`
+
+Det betyr at Netlify kan publisere direkte fra repo-roten.
+
 ## Kontroller
 
 - Klikk `Start / Pause` for vanlig start og pause
