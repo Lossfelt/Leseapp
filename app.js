@@ -3,6 +3,7 @@ const DEFAULT_WPM = 320;
 const STARTUP_PREVIEW_MS = 1000;
 const HOLD_THRESHOLD_MS = 180;
 const DEFAULT_LONG_WORD_BONUS_ENABLED = true;
+const EXPANDED_CONTEXT_CHUNK_SIZE = 24;
 const LONG_WORD_BONUS_MULTIPLIER = 0.18;
 const VERY_LONG_WORD_BONUS_MULTIPLIER = 0.24;
 const SENTENCE_END_BONUS_MULTIPLIER = 0.72;
@@ -10,6 +11,8 @@ const PARAGRAPH_END_BONUS_MULTIPLIER = 1.35;
 
 const state = {
   contextExpanded: false,
+  contextRangeEnd: 0,
+  contextRangeStart: 0,
   contextScrollToCurrent: false,
   currentIndex: 0,
   errorMessage: "",
@@ -124,6 +127,8 @@ function applyLoadedDocument(file, result) {
 
   state.currentIndex = clampIndex(saved?.currentIndex ?? 0, model.words.length);
   state.contextExpanded = false;
+  state.contextRangeStart = 0;
+  state.contextRangeEnd = 0;
   state.contextScrollToCurrent = true;
   state.errorMessage = "";
   state.fileKey = makeFileKey(file);
@@ -177,11 +182,23 @@ function handleContextToggleClick() {
   }
 
   state.contextExpanded = !state.contextExpanded;
-  state.contextScrollToCurrent = true;
+  if (state.contextExpanded) {
+    initializeExpandedContextRange(getCurrentParagraphIndex());
+    state.contextScrollToCurrent = true;
+  } else {
+    state.contextScrollToCurrent = false;
+  }
   renderContext();
 }
 
 function handleContextBodyClick(event) {
+  const loadButton = event.target.closest("[data-load-direction]");
+
+  if (loadButton && state.contextExpanded) {
+    handleExpandedContextPaging(loadButton.dataset.loadDirection);
+    return;
+  }
+
   const wordButton = event.target.closest("[data-word-index]");
 
   if (!wordButton || !hasLoadedText()) {
@@ -199,11 +216,41 @@ function handleContextBodyClick(event) {
   }
 
   state.currentIndex = clampIndex(nextIndex, state.words.length);
-  state.contextScrollToCurrent = true;
+  if (state.contextExpanded) {
+    ensureCurrentParagraphInExpandedRange();
+    state.contextScrollToCurrent = false;
+  } else {
+    state.contextScrollToCurrent = true;
+  }
   state.reachedEnd = false;
   saveProgress();
   render();
   setStatus("Ny leseplass valgt. Trykk start når du vil fortsette.", "normal");
+}
+
+function handleExpandedContextPaging(direction) {
+  const previousStart = state.contextRangeStart;
+  const previousEnd = state.contextRangeEnd;
+
+  if (direction === "prev") {
+    state.contextRangeStart = Math.max(0, state.contextRangeStart - EXPANDED_CONTEXT_CHUNK_SIZE);
+  }
+
+  if (direction === "next") {
+    state.contextRangeEnd = Math.min(
+      state.paragraphs.length,
+      state.contextRangeEnd + EXPANDED_CONTEXT_CHUNK_SIZE,
+    );
+  }
+
+  if (state.contextRangeStart === previousStart && state.contextRangeEnd === previousEnd) {
+    return;
+  }
+
+  renderContext();
+
+  const anchorIndex = direction === "prev" ? previousStart : previousEnd - 1;
+  scrollParagraphIntoView(anchorIndex, direction === "prev" ? "start" : "end");
 }
 
 function handlePlayButtonClick() {
@@ -356,7 +403,7 @@ function pausePlayback({ showContext = true } = {}) {
   state.isPreviewing = false;
 
   if (showContext) {
-    state.contextScrollToCurrent = true;
+    state.contextScrollToCurrent = !state.contextExpanded;
     renderContext();
   }
 
@@ -415,6 +462,8 @@ function scaledPause(baseDelay, multiplier, min, max) {
 function resetDocument() {
   clearPlaybackTimer();
   state.contextExpanded = false;
+  state.contextRangeStart = 0;
+  state.contextRangeEnd = 0;
   state.contextScrollToCurrent = false;
   state.currentIndex = 0;
   state.errorMessage = "";
@@ -578,10 +627,16 @@ function renderContext() {
   }
 
   const word = state.words[state.currentIndex];
+  const currentParagraphIndex = getCurrentParagraphIndex();
+
+  if (state.contextExpanded) {
+    ensureCurrentParagraphInExpandedRange();
+  }
+
   elements.contextPanel.classList.remove("is-empty");
   elements.contextPanel.classList.toggle("is-expanded", state.contextExpanded);
   elements.contextHint.textContent = state.contextExpanded
-    ? `${state.progressOriginLabel} · scroll og trykk på et ord for å velge ny startplass.`
+    ? buildExpandedContextHint()
     : `${state.progressOriginLabel} · ord ${state.currentIndex + 1}`;
   elements.contextToggle.textContent = state.contextExpanded
     ? "Vis mindre tekst"
@@ -589,14 +644,21 @@ function renderContext() {
 
   const fragment = document.createDocumentFragment();
   const paragraphsToRender = state.contextExpanded
-    ? state.paragraphs
-    : [state.paragraphs[word.paragraphIndex]];
+    ? state.paragraphs.slice(state.contextRangeStart, state.contextRangeEnd)
+    : [state.paragraphs[currentParagraphIndex]];
+
+  if (state.contextExpanded && state.contextRangeStart > 0) {
+    fragment.append(
+      createContextPager("prev", `Vis tidligere avsnitt (${state.contextRangeStart} over)`),
+    );
+  }
 
   paragraphsToRender.forEach((paragraph) => {
     const paragraphElement = document.createElement("p");
     paragraphElement.className = "context-paragraph";
+    paragraphElement.dataset.paragraphIndex = String(paragraph.index);
 
-    if (paragraph.index === word.paragraphIndex) {
+    if (paragraph.index === currentParagraphIndex) {
       paragraphElement.classList.add("is-current-paragraph");
     }
 
@@ -620,6 +682,15 @@ function renderContext() {
 
     fragment.append(paragraphElement);
   });
+
+  if (state.contextExpanded && state.contextRangeEnd < state.paragraphs.length) {
+    fragment.append(
+      createContextPager(
+        "next",
+        `Vis flere avsnitt (${state.paragraphs.length - state.contextRangeEnd} igjen)`,
+      ),
+    );
+  }
 
   elements.contextBody.append(fragment);
   scrollCurrentWordIntoView();
@@ -654,6 +725,59 @@ function scrollCurrentWordIntoView() {
       block: state.contextExpanded ? "center" : "nearest",
       inline: "nearest",
     });
+  });
+}
+
+function initializeExpandedContextRange(centerParagraphIndex) {
+  const start = Math.max(0, centerParagraphIndex - Math.floor(EXPANDED_CONTEXT_CHUNK_SIZE / 2));
+  const end = Math.min(state.paragraphs.length, start + EXPANDED_CONTEXT_CHUNK_SIZE);
+  state.contextRangeStart = Math.max(0, end - EXPANDED_CONTEXT_CHUNK_SIZE);
+  state.contextRangeEnd = end;
+}
+
+function ensureCurrentParagraphInExpandedRange() {
+  const currentParagraphIndex = getCurrentParagraphIndex();
+
+  if (
+    currentParagraphIndex >= state.contextRangeStart &&
+    currentParagraphIndex < state.contextRangeEnd
+  ) {
+    return;
+  }
+
+  initializeExpandedContextRange(currentParagraphIndex);
+}
+
+function getCurrentParagraphIndex() {
+  return hasLoadedText() ? state.words[state.currentIndex].paragraphIndex : 0;
+}
+
+function buildExpandedContextHint() {
+  return (
+    `${state.progressOriginLabel} · avsnitt ${state.contextRangeStart + 1}` +
+    `-${state.contextRangeEnd} av ${state.paragraphs.length}. ` +
+    "Trykk på et ord for å velge ny startplass."
+  );
+}
+
+function createContextPager(direction, label) {
+  const button = document.createElement("button");
+  button.className = "context-pager";
+  button.dataset.loadDirection = direction;
+  button.textContent = label;
+  button.type = "button";
+  return button;
+}
+
+function scrollParagraphIntoView(paragraphIndex, block = "nearest") {
+  requestAnimationFrame(() => {
+    const paragraph = elements.contextBody.querySelector(
+      `[data-paragraph-index="${paragraphIndex}"]`,
+    );
+
+    if (paragraph) {
+      paragraph.scrollIntoView({ block, inline: "nearest" });
+    }
   });
 }
 
