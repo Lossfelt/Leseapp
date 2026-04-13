@@ -316,6 +316,35 @@ code {
   align-items: end;
 }
 
+.context-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.context-toggle {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgba(78, 62, 47, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 140ms ease, background-color 140ms ease, opacity 140ms ease;
+}
+
+.context-toggle:hover:enabled {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.context-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .context-header .muted {
   margin: 0;
   max-width: 46ch;
@@ -332,11 +361,43 @@ code {
   font-family: var(--font-reading);
   font-size: 1.2rem;
   line-height: 1.85;
+  max-height: 220px;
+  overflow: auto;
+  scroll-behavior: smooth;
+}
+
+.context-card.is-expanded .context-body {
+  max-height: min(70vh, 840px);
+}
+
+.context-paragraph {
+  margin: 0;
+}
+
+.context-paragraph + .context-paragraph {
+  margin-top: 1.1em;
+}
+
+.context-paragraph.is-current-paragraph {
+  padding-left: 14px;
+  border-left: 3px solid rgba(180, 90, 50, 0.22);
 }
 
 .context-word {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   border-radius: 8px;
+  cursor: pointer;
   transition: background-color 160ms ease, color 160ms ease;
+}
+
+.context-word:hover {
+  background: rgba(180, 90, 50, 0.08);
 }
 
 .context-word.is-current {
@@ -378,6 +439,10 @@ code {
 
   .context-header .muted {
     text-align: left;
+  }
+
+  .context-toolbar {
+    align-items: flex-start;
   }
 
   .play-button {

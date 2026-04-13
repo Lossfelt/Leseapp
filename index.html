@@ -75,11 +75,16 @@
         <div class="context-header">
           <div>
             <p class="eyebrow">Kontekst</p>
-            <h2>Avsnittet rundt siste ord</h2>
+            <h2>Tekstvindu rundt leseplassen</h2>
           </div>
-          <p id="contextHint" class="muted">
-            Panelet fylles når du åpner en tekst og pauser lesingen.
-          </p>
+          <div class="context-toolbar">
+            <button id="contextToggle" class="context-toggle" type="button" disabled>
+              Utvid tekstvindu
+            </button>
+            <p id="contextHint" class="muted">
+              Panelet fylles når du åpner en tekst og pauser lesingen.
+            </p>
+          </div>
         </div>
         <div id="contextBody" class="context-body"></div>
       </section>

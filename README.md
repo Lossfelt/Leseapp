@@ -21,6 +21,8 @@ Den nåværende versjonen støtter:
 - hold-for-lesing med `Space`
 - justerbar hastighet i `WPM`
 - automatisk kontekstpanel ved pause
+- utvidbart tekstvindu for å bla i teksten før start
+- klikkbare ord i tekstvinduet for å velge ny leseplass
 - markering av gjeldende ord i kontekstpanelet
 - lokal lagring av hastighet, posisjon og innstillinger per fil
 - valgfri ekstra tid på lange ord
@@ -53,6 +55,7 @@ python3 -m http.server 8765
 - Hold inne `Space` for å lese bare mens tasten holdes inne
 - Juster hastigheten med slideren
 - Slipp knapp eller `Space` for å pause og vise kontekstpanelet
+- Utvid tekstvinduet og trykk på et ord for å hoppe til ny startplass
 
 ## EPUB-støtte
 
