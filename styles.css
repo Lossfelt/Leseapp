@@ -208,6 +208,16 @@ code {
   font-weight: 700;
 }
 
+.status-pill.is-error {
+  background: rgba(169, 52, 20, 0.12);
+  color: #8d2a12;
+}
+
+.status-pill.is-loading {
+  background: rgba(90, 76, 48, 0.12);
+  color: #5d4a2b;
+}
+
 .progress-text {
   color: var(--muted);
   font-variant-numeric: tabular-nums;

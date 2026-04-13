@@ -9,40 +9,42 @@ const SENTENCE_END_BONUS_MULTIPLIER = 0.72;
 const PARAGRAPH_END_BONUS_MULTIPLIER = 1.35;
 
 const state = {
-  fileName: "",
-  fileKey: "",
-  words: [],
-  paragraphs: [],
   currentIndex: 0,
-  wpm: DEFAULT_WPM,
-  longWordBonusEnabled: DEFAULT_LONG_WORD_BONUS_ENABLED,
+  errorMessage: "",
+  fileKey: "",
+  fileLabel: "",
+  ignoreNextButtonClick: false,
+  isLoading: false,
   isPlaying: false,
   isPreviewing: false,
-  reachedEnd: false,
-  timerId: null,
-  holdSource: null,
-  pointerHoldTimer: null,
+  longWordBonusEnabled: DEFAULT_LONG_WORD_BONUS_ENABLED,
+  paragraphs: [],
   pointerHoldActive: false,
-  ignoreNextButtonClick: false,
+  pointerHoldTimer: null,
   pointerId: null,
-  spaceHoldTimer: null,
-  spaceHoldActive: false,
+  progressOriginLabel: "",
+  reachedEnd: false,
   spaceDown: false,
+  spaceHoldActive: false,
+  spaceHoldTimer: null,
+  timerId: null,
+  words: [],
+  wpm: DEFAULT_WPM,
 };
 
 const elements = {
+  contextBody: document.querySelector("#contextBody"),
+  contextHint: document.querySelector("#contextHint"),
+  contextPanel: document.querySelector("#contextPanel"),
   fileInput: document.querySelector("#fileInput"),
   fileMeta: document.querySelector("#fileMeta"),
+  longWordToggle: document.querySelector("#longWordToggle"),
+  playButton: document.querySelector("#playButton"),
+  progressText: document.querySelector("#progressText"),
   speedSlider: document.querySelector("#speedSlider"),
   speedValue: document.querySelector("#speedValue"),
-  longWordToggle: document.querySelector("#longWordToggle"),
   statusText: document.querySelector("#statusText"),
-  progressText: document.querySelector("#progressText"),
   wordDisplay: document.querySelector("#wordDisplay"),
-  playButton: document.querySelector("#playButton"),
-  contextPanel: document.querySelector("#contextPanel"),
-  contextHint: document.querySelector("#contextHint"),
-  contextBody: document.querySelector("#contextBody"),
 };
 
 function init() {
@@ -51,13 +53,13 @@ function init() {
   elements.longWordToggle.checked = DEFAULT_LONG_WORD_BONUS_ENABLED;
 
   elements.fileInput.addEventListener("change", handleFileSelection);
-  elements.speedSlider.addEventListener("input", handleSpeedChange);
   elements.longWordToggle.addEventListener("change", handleLongWordToggleChange);
   elements.playButton.addEventListener("click", handlePlayButtonClick);
-  elements.playButton.addEventListener("pointerdown", handlePlayButtonPointerDown);
-  elements.playButton.addEventListener("pointerup", handlePlayButtonPointerUp);
   elements.playButton.addEventListener("pointercancel", handlePlayButtonPointerUp);
+  elements.playButton.addEventListener("pointerdown", handlePlayButtonPointerDown);
   elements.playButton.addEventListener("pointerleave", handlePlayButtonPointerLeave);
+  elements.playButton.addEventListener("pointerup", handlePlayButtonPointerUp);
+  elements.speedSlider.addEventListener("input", handleSpeedChange);
 
   document.addEventListener("keydown", handleSpaceKeyDown);
   document.addEventListener("keyup", handleSpaceKeyUp);
@@ -72,41 +74,78 @@ async function handleFileSelection(event) {
     return;
   }
 
-  pausePlayback({ showContext: false, preserveHoldStyles: false });
+  pausePlayback({ showContext: false });
+  resetDocument();
+  state.isLoading = true;
+  setStatus("Laster fil...", "loading");
+  render();
+
+  try {
+    const result = await loadDocumentFile(file);
+    applyLoadedDocument(file, result);
+  } catch (error) {
+    resetDocument();
+    state.errorMessage = formatErrorMessage(error);
+    elements.fileMeta.textContent = `${file.name} kunne ikke åpnes.`;
+  } finally {
+    state.isLoading = false;
+    render();
+  }
+}
+
+async function loadDocumentFile(file) {
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+
+  if (extension === "epub") {
+    const result = await window.LeseappEpub.loadFile(file);
+    return {
+      ...result,
+      originLabel: result.metadata.title || file.name,
+    };
+  }
 
   const text = await file.text();
-  const model = parseTextFile(text);
+  return {
+    format: "txt",
+    metadata: {},
+    model: window.LeseappReadingModel.createModelFromText(text),
+    originLabel: file.name,
+  };
+}
 
-  state.fileName = file.name;
+function applyLoadedDocument(file, result) {
+  const { model } = result;
+  const saved = loadProgress(makeFileKey(file));
+
+  state.currentIndex = clampIndex(saved?.currentIndex ?? 0, model.words.length);
+  state.errorMessage = "";
   state.fileKey = makeFileKey(file);
-  state.words = model.words;
-  state.paragraphs = model.paragraphs;
-  state.reachedEnd = false;
-  state.isPreviewing = false;
-
-  const saved = loadProgress(state.fileKey);
-  state.currentIndex = clampIndex(saved?.currentIndex ?? 0);
-  state.wpm = clampWpm(saved?.wpm ?? DEFAULT_WPM);
+  state.fileLabel = file.name;
   state.longWordBonusEnabled =
     saved?.longWordBonusEnabled ?? DEFAULT_LONG_WORD_BONUS_ENABLED;
+  state.paragraphs = model.paragraphs;
+  state.progressOriginLabel = result.originLabel;
+  state.reachedEnd = false;
+  state.words = model.words;
+  state.wpm = clampWpm(saved?.wpm ?? DEFAULT_WPM);
 
+  elements.longWordToggle.checked = state.longWordBonusEnabled;
+  elements.playButton.disabled = !state.words.length;
   elements.speedSlider.value = String(state.wpm);
   elements.speedValue.textContent = `${state.wpm} WPM`;
-  elements.longWordToggle.checked = state.longWordBonusEnabled;
-  elements.playButton.disabled = state.words.length === 0;
 
-  if (state.words.length === 0) {
-    elements.fileMeta.textContent = `${file.name} inneholder ingen ord som kan leses.`;
-    elements.statusText.textContent = "Teksten ser ut til å være tom.";
-    elements.wordDisplay.textContent = "Tom tekst";
-    renderContext();
+  if (!state.words.length) {
+    elements.fileMeta.textContent = `${file.name} inneholder ingen lesbar tekst.`;
+    state.errorMessage = "Fant ingen ord å vise fra filen.";
+    render();
     return;
   }
 
+  const fileKind = result.format.toUpperCase();
   const savedNote = saved ? "Fortsetter fra sist lagrede posisjon." : "Starter fra begynnelsen.";
-  elements.fileMeta.textContent = `${file.name} · ${state.words.length} ord · ${state.paragraphs.length} avsnitt · ${savedNote}`;
-  elements.statusText.textContent = "Klar til lesing.";
-  elements.wordDisplay.textContent = state.words[state.currentIndex].raw;
+  elements.fileMeta.textContent =
+    `${state.progressOriginLabel} · ${fileKind} · ${state.words.length} ord · ` +
+    `${state.paragraphs.length} avsnitt · ${savedNote}`;
 
   saveProgress();
   render();
@@ -115,20 +154,13 @@ async function handleFileSelection(event) {
 function handleSpeedChange(event) {
   state.wpm = clampWpm(Number(event.target.value));
   elements.speedValue.textContent = `${state.wpm} WPM`;
-
-  if (state.fileKey) {
-    saveProgress();
-  }
-
+  saveProgress();
   renderStatus();
 }
 
 function handleLongWordToggleChange(event) {
   state.longWordBonusEnabled = event.target.checked;
-
-  if (state.fileKey) {
-    saveProgress();
-  }
+  saveProgress();
 }
 
 function handlePlayButtonClick() {
@@ -137,7 +169,11 @@ function handlePlayButtonClick() {
     return;
   }
 
-  togglePlayback("button");
+  if (state.pointerHoldActive) {
+    return;
+  }
+
+  togglePlayback();
 }
 
 function handlePlayButtonPointerDown(event) {
@@ -147,15 +183,14 @@ function handlePlayButtonPointerDown(event) {
 
   state.pointerId = event.pointerId;
   state.pointerHoldActive = false;
-
   elements.playButton.setPointerCapture(event.pointerId);
 
   clearTimeout(state.pointerHoldTimer);
   state.pointerHoldTimer = window.setTimeout(() => {
     if (state.pointerId === event.pointerId && !state.isPlaying) {
       state.pointerHoldActive = true;
-      state.ignoreNextButtonClick = true;
-      startPlayback("pointer-hold");
+      startPlayback();
+      updateHeldVisualState();
     }
   }, HOLD_THRESHOLD_MS);
 }
@@ -174,6 +209,7 @@ function handlePlayButtonPointerUp(event) {
   state.pointerId = null;
 
   if (state.pointerHoldActive) {
+    state.ignoreNextButtonClick = true;
     state.pointerHoldActive = false;
     pausePlayback({ showContext: true });
   }
@@ -205,7 +241,8 @@ function handleSpaceKeyDown(event) {
   state.spaceHoldTimer = window.setTimeout(() => {
     if (state.spaceDown && !state.isPlaying && hasLoadedText()) {
       state.spaceHoldActive = true;
-      startPlayback("space-hold");
+      startPlayback();
+      updateHeldVisualState();
     }
   }, HOLD_THRESHOLD_MS);
 }
@@ -228,10 +265,10 @@ function handleSpaceKeyUp(event) {
     return;
   }
 
-  togglePlayback("space");
+  togglePlayback();
 }
 
-function togglePlayback(source) {
+function togglePlayback() {
   if (!hasLoadedText()) {
     return;
   }
@@ -241,10 +278,10 @@ function togglePlayback(source) {
     return;
   }
 
-  startPlayback(source);
+  startPlayback();
 }
 
-function startPlayback(source) {
+function startPlayback() {
   if (!hasLoadedText()) {
     return;
   }
@@ -255,10 +292,9 @@ function startPlayback(source) {
   }
 
   clearPlaybackTimer();
+  state.errorMessage = "";
   state.isPlaying = true;
   state.isPreviewing = true;
-  state.holdSource = source === "pointer-hold" || source === "space-hold" ? source : null;
-
   render();
 
   state.timerId = window.setTimeout(() => {
@@ -271,17 +307,10 @@ function startPlayback(source) {
   }, STARTUP_PREVIEW_MS);
 }
 
-function pausePlayback({ showContext = true, preserveHoldStyles = false } = {}) {
+function pausePlayback({ showContext = true } = {}) {
   clearPlaybackTimer();
   state.isPlaying = false;
   state.isPreviewing = false;
-  state.holdSource = null;
-
-  if (!preserveHoldStyles) {
-    state.pointerHoldActive = false;
-    state.spaceHoldActive = false;
-    updateHeldVisualState();
-  }
 
   if (showContext) {
     renderContext();
@@ -299,7 +328,7 @@ function advanceWord() {
   if (state.currentIndex >= state.words.length - 1) {
     state.reachedEnd = true;
     pausePlayback({ showContext: true });
-    renderStatus("Slutt på teksten. Start på nytt for å lese fra begynnelsen.");
+    setStatus("Slutt på teksten. Start på nytt for å lese fra begynnelsen.", "normal");
     return;
   }
 
@@ -307,28 +336,24 @@ function advanceWord() {
   saveProgress();
   render();
 
-  const delay = getWordDelay(state.words[state.currentIndex]);
-  state.timerId = window.setTimeout(() => {
-    advanceWord();
-  }, delay);
+  state.timerId = window.setTimeout(advanceWord, getWordDelay(state.words[state.currentIndex]));
 }
 
 function getWordDelay(word) {
   const baseDelay = 60000 / state.wpm;
   let extraDelay = 0;
-  const token = word.raw;
 
   if (state.longWordBonusEnabled) {
-    if (token.length >= 9) {
+    if (word.raw.length >= 9) {
       extraDelay += scaledPause(baseDelay, LONG_WORD_BONUS_MULTIPLIER, 18, 85);
     }
 
-    if (token.length >= 13) {
+    if (word.raw.length >= 13) {
       extraDelay += scaledPause(baseDelay, VERY_LONG_WORD_BONUS_MULTIPLIER, 24, 120);
     }
   }
 
-  if (/[.!?][)"'\]]*$/.test(token)) {
+  if (/[.!?][)"'\]]*$/.test(word.raw)) {
     extraDelay += scaledPause(baseDelay, SENTENCE_END_BONUS_MULTIPLIER, 36, 220);
   }
 
@@ -340,44 +365,22 @@ function getWordDelay(word) {
 }
 
 function scaledPause(baseDelay, multiplier, min, max) {
-  const scaled = baseDelay * multiplier;
-  return Math.max(min, Math.min(max, scaled));
+  return Math.max(min, Math.min(max, baseDelay * multiplier));
 }
 
-function parseTextFile(text) {
-  const normalized = text.replace(/\r\n/g, "\n");
-  const paragraphTexts = normalized
-    .split(/\n\s*\n+/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean);
-
-  const paragraphs = [];
-  const words = [];
-
-  paragraphTexts.forEach((paragraphText, paragraphIndex) => {
-    const tokens = paragraphText.split(/\s+/).filter(Boolean);
-    const startIndex = words.length;
-
-    tokens.forEach((token, tokenIndex) => {
-      const isParagraphEnd = tokenIndex === tokens.length - 1;
-
-      words.push({
-        raw: token,
-        paragraphIndex,
-        indexInParagraph: tokenIndex,
-        isParagraphEnd,
-      });
-    });
-
-    paragraphs.push({
-      index: paragraphIndex,
-      tokens,
-      startIndex,
-      endIndex: words.length - 1,
-    });
-  });
-
-  return { paragraphs, words };
+function resetDocument() {
+  clearPlaybackTimer();
+  state.currentIndex = 0;
+  state.errorMessage = "";
+  state.fileKey = "";
+  state.fileLabel = "";
+  state.isPlaying = false;
+  state.isPreviewing = false;
+  state.paragraphs = [];
+  state.progressOriginLabel = "";
+  state.reachedEnd = false;
+  state.words = [];
+  elements.playButton.disabled = true;
 }
 
 function makeFileKey(file) {
@@ -388,7 +391,7 @@ function loadProgress(fileKey) {
   try {
     const raw = localStorage.getItem(fileKey);
     return raw ? JSON.parse(raw) : null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -398,26 +401,27 @@ function saveProgress() {
     return;
   }
 
-  const payload = {
-    currentIndex: state.currentIndex,
-    wpm: state.wpm,
-    longWordBonusEnabled: state.longWordBonusEnabled,
-    updatedAt: Date.now(),
-  };
-
   try {
-    localStorage.setItem(state.fileKey, JSON.stringify(payload));
-  } catch (error) {
-    // Ignore quota/storage errors in the prototype.
+    localStorage.setItem(
+      state.fileKey,
+      JSON.stringify({
+        currentIndex: state.currentIndex,
+        longWordBonusEnabled: state.longWordBonusEnabled,
+        updatedAt: Date.now(),
+        wpm: state.wpm,
+      }),
+    );
+  } catch {
+    // Ignore storage errors in the prototype.
   }
 }
 
-function clampIndex(index) {
-  if (!Number.isFinite(index) || state.words.length === 0) {
+function clampIndex(index, wordCount) {
+  if (!Number.isFinite(index) || wordCount === 0) {
     return 0;
   }
 
-  return Math.max(0, Math.min(index, state.words.length - 1));
+  return Math.max(0, Math.min(index, wordCount - 1));
 }
 
 function clampWpm(value) {
@@ -455,39 +459,48 @@ function render() {
   updateHeldVisualState();
 }
 
-function renderStatus(overrideText) {
-  if (overrideText) {
-    elements.statusText.textContent = overrideText;
+function renderStatus() {
+  if (state.errorMessage) {
+    setStatus(state.errorMessage, "error");
+    return;
+  }
+
+  if (state.isLoading) {
+    setStatus("Laster fil...", "loading");
     return;
   }
 
   if (!hasLoadedText()) {
-    elements.statusText.textContent = "Last inn en tekst for å starte.";
+    setStatus("Last inn en tekst eller EPUB for å starte.", "normal");
     return;
   }
 
   if (state.isPlaying) {
-    elements.statusText.textContent = state.isPreviewing
-      ? "Fester blikket i 1 sekund før lesing starter."
-      : "Leser. Slipp for å pause og se kontekst.";
+    setStatus(
+      state.isPreviewing
+        ? "Fester blikket i 1 sekund før lesing starter."
+        : "Leser. Slipp for å pause og se kontekst.",
+      "normal",
+    );
     return;
   }
 
   if (state.reachedEnd) {
-    elements.statusText.textContent = "Teksten er ferdig lest.";
+    setStatus("Teksten er ferdig lest.", "normal");
     return;
   }
 
-  elements.statusText.textContent = "Pauset. Kontekst vises under.";
+  setStatus("Pauset. Kontekst vises under.", "normal");
+}
+
+function setStatus(message, tone) {
+  elements.statusText.textContent = message;
+  elements.statusText.classList.toggle("is-error", tone === "error");
+  elements.statusText.classList.toggle("is-loading", tone === "loading");
 }
 
 function renderWord() {
-  if (!hasLoadedText()) {
-    elements.wordDisplay.textContent = "Klar";
-    return;
-  }
-
-  elements.wordDisplay.textContent = state.words[state.currentIndex].raw;
+  elements.wordDisplay.textContent = hasLoadedText() ? state.words[state.currentIndex].raw : "Klar";
 }
 
 function renderProgress() {
@@ -498,8 +511,8 @@ function renderProgress() {
 
   const current = state.currentIndex + 1;
   const total = state.words.length;
-  const percent = Math.round((current / total) * 100);
-  elements.progressText.textContent = `${current} / ${total} ord · ${percent}%`;
+  elements.progressText.textContent =
+    `${current} / ${total} ord · ${Math.round((current / total) * 100)}%`;
 }
 
 function renderContext() {
@@ -508,15 +521,14 @@ function renderContext() {
   if (!hasLoadedText()) {
     elements.contextPanel.classList.add("is-empty");
     elements.contextHint.textContent =
-      "Panelet fylles når du åpner en tekst og pauser lesingen.";
+      "Panelet fylles når du åpner en tekst eller EPUB og pauser lesingen.";
     return;
   }
 
   const word = state.words[state.currentIndex];
   const paragraph = state.paragraphs[word.paragraphIndex];
-
   elements.contextPanel.classList.remove("is-empty");
-  elements.contextHint.textContent = `${state.fileName} · ord ${state.currentIndex + 1}`;
+  elements.contextHint.textContent = `${state.progressOriginLabel} · ord ${state.currentIndex + 1}`;
 
   paragraph.tokens.forEach((token, tokenIndex) => {
     const span = document.createElement("span");
@@ -533,18 +545,17 @@ function renderContext() {
       elements.contextBody.append(document.createTextNode(" "));
     }
   });
-
-  const currentWord = elements.contextBody.querySelector(".is-current");
-  if (currentWord) {
-    requestAnimationFrame(() => {
-      currentWord.scrollIntoView({ block: "nearest", inline: "nearest" });
-    });
-  }
 }
 
 function updateHeldVisualState() {
-  const shouldLookHeld = state.pointerHoldActive || state.spaceHoldActive;
-  elements.playButton.classList.toggle("is-held", shouldLookHeld);
+  elements.playButton.classList.toggle(
+    "is-held",
+    state.pointerHoldActive || state.spaceHoldActive,
+  );
+}
+
+function formatErrorMessage(error) {
+  return error instanceof Error ? error.message : "Ukjent feil ved åpning av filen.";
 }
 
 init();

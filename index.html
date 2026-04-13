@@ -12,15 +12,19 @@
         <p class="eyebrow">Leseapp prototype</p>
         <h1>Les ett ord av gangen i fast posisjon.</h1>
         <p class="lead">
-          Åpne en <code>.txt</code>-fil og test hurtiglesing med pause, kontekst og
-          lokal progresjon per tekst.
+          Åpne en <code>.txt</code>- eller <code>.epub</code>-fil og test hurtiglesing
+          med pause, kontekst og lokal progresjon per tekst.
         </p>
       </section>
 
       <section class="control-panel">
         <div class="file-card">
-          <label class="file-picker" for="fileInput">Velg tekstfil</label>
-          <input id="fileInput" type="file" accept=".txt,text/plain" />
+          <label class="file-picker" for="fileInput">Velg tekst eller EPUB</label>
+          <input
+            id="fileInput"
+            type="file"
+            accept=".txt,.epub,text/plain,application/epub+zip"
+          />
           <p id="fileMeta" class="muted">Ingen fil valgt ennå.</p>
         </div>
 
@@ -81,6 +85,9 @@
       </section>
     </main>
 
+    <script src="./vendor/jszip.min.js"></script>
+    <script src="./reading-model.js"></script>
+    <script src="./epub-loader.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>
