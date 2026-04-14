@@ -9,7 +9,7 @@
   <body>
     <main class="app-shell">
       <section class="hero">
-        <h1 class="app-title">Leseapp</h1>
+        <h1 id="appTitle" class="app-title">Leseapp</h1>
       </section>
 
       <section class="control-panel">
@@ -20,7 +20,6 @@
             type="file"
             accept=".txt,.epub,text/plain,application/epub+zip"
           />
-          <p id="fileMeta" class="muted">Ingen fil valgt ennå.</p>
         </div>
 
         <div class="speed-card">
@@ -28,19 +27,20 @@
             <span class="speed-label">Hastighet</span>
             <strong id="speedValue" class="speed-reading">320 WPM</strong>
           </button>
-          <div id="speedControls" class="speed-controls is-collapsed">
-            <input
-              id="speedSlider"
-              type="range"
-              min="120"
-              max="900"
-              value="320"
-              step="10"
-              aria-label="Juster lesehastighet"
-            />
-          </div>
         </div>
       </section>
+
+      <div id="speedControls" class="speed-controls is-collapsed">
+        <input
+          id="speedSlider"
+          type="range"
+          min="120"
+          max="900"
+          value="320"
+          step="10"
+          aria-label="Juster lesehastighet"
+        />
+      </div>
 
       <section class="reader-card">
         <div class="reader-meta">

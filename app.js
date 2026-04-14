@@ -37,12 +37,12 @@ const state = {
 };
 
 const elements = {
+  appTitle: document.querySelector("#appTitle"),
   contextBody: document.querySelector("#contextBody"),
   contextHint: document.querySelector("#contextHint"),
   contextPanel: document.querySelector("#contextPanel"),
   contextToggle: document.querySelector("#contextToggle"),
   fileInput: document.querySelector("#fileInput"),
-  fileMeta: document.querySelector("#fileMeta"),
   nextWordDisplay: document.querySelector("#nextWordDisplay"),
   nextSectionButton: document.querySelector("#nextSectionButton"),
   playButton: document.querySelector("#playButton"),
@@ -99,7 +99,6 @@ async function handleFileSelection(event) {
   } catch (error) {
     resetDocument();
     state.errorMessage = formatErrorMessage(error);
-    elements.fileMeta.textContent = `${file.name} kunne ikke åpnes.`;
   } finally {
     state.isLoading = false;
     render();
@@ -153,13 +152,10 @@ function applyLoadedDocument(file, result) {
   elements.speedValue.textContent = `${state.wpm} WPM`;
 
   if (!state.words.length) {
-    elements.fileMeta.textContent = `${file.name} inneholder ingen lesbar tekst.`;
     state.errorMessage = "Fant ingen ord å vise fra filen.";
     render();
     return;
   }
-
-  elements.fileMeta.textContent = file.name;
 
   saveProgress();
   render();
@@ -209,7 +205,6 @@ function handleContextBodyClick(event) {
   }
 
   jumpToWordIndex(Number(wordButton.dataset.wordIndex), { keepExpandedContext: state.contextExpanded });
-  setStatus("Ny leseplass valgt. Trykk start når du vil fortsette.", "normal");
 }
 
 function handleExpandedContextPaging(direction) {
@@ -353,7 +348,6 @@ function jumpToAdjacentSection(direction) {
   }
 
   jumpToWordIndex(state.sections[targetIndex].wordIndex, { keepExpandedContext: false });
-  setStatus(`Hoppet til ${state.sections[targetIndex].label}.`, "normal");
 }
 
 function jumpToWordIndex(nextIndex, { keepExpandedContext } = {}) {
@@ -443,7 +437,6 @@ function advanceWord() {
   if (state.currentIndex >= state.words.length - 1) {
     state.reachedEnd = true;
     pausePlayback({ showContext: true });
-    setStatus("Slutt på teksten. Start på nytt for å lese fra begynnelsen.", "normal");
     return;
   }
 
@@ -503,6 +496,7 @@ function resetDocument() {
   elements.nextSectionButton.disabled = true;
   elements.playButton.disabled = true;
   elements.prevSectionButton.disabled = true;
+  updateAppTitle();
 }
 
 function loadProgress(fileKey) {
@@ -572,8 +566,10 @@ function render() {
   renderStatus();
   renderWord();
   renderProgress();
+  renderPlayButton();
   renderSpeedControls();
   renderSectionNav();
+  updateAppTitle();
 
   if (!state.isPlaying) {
     renderContext();
@@ -592,32 +588,12 @@ function renderStatus() {
     setStatus("Laster fil...", "loading");
     return;
   }
-
-  if (!hasLoadedText()) {
-    setStatus("Last inn en tekst eller EPUB for å starte.", "normal");
-    return;
-  }
-
-  if (state.isPlaying) {
-    setStatus(
-      state.isPreviewing
-        ? "Fester blikket i 1 sekund før lesing starter."
-        : "Leser. Slipp for å pause og se kontekst.",
-      "normal",
-    );
-    return;
-  }
-
-  if (state.reachedEnd) {
-    setStatus("Teksten er ferdig lest.", "normal");
-    return;
-  }
-
-  setStatus("Pauset. Kontekst vises under.", "normal");
+  setStatus("", "hidden");
 }
 
 function setStatus(message, tone) {
   elements.statusText.textContent = message;
+  elements.statusText.classList.toggle("is-hidden", tone === "hidden");
   elements.statusText.classList.toggle("is-error", tone === "error");
   elements.statusText.classList.toggle("is-loading", tone === "loading");
 }
@@ -641,12 +617,49 @@ function renderProgress() {
     return;
   }
 
+  const currentBook = state.currentIndex + 1;
+  const totalBook = state.words.length;
+  const bookPercent = Math.max(0, Math.min(100, Math.round((currentBook / totalBook) * 100)));
   const sectionRange = getCurrentSectionRange();
-  const current = state.currentIndex - sectionRange.startWordIndex + 1;
-  const total = sectionRange.endWordIndex - sectionRange.startWordIndex + 1;
-  const percent = Math.max(0, Math.min(100, Math.round((current / total) * 100)));
-  const scopeLabel = sectionRange.isChapter ? "i kapittel" : "i tekst";
-  elements.progressText.textContent = `${current} / ${total} ${scopeLabel} · ${percent}%`;
+
+  if (!sectionRange.isChapter) {
+    elements.progressText.textContent = `${currentBook} / ${totalBook} · ${bookPercent}%`;
+    return;
+  }
+
+  const currentChapter = state.currentIndex - sectionRange.startWordIndex + 1;
+  const totalChapter = sectionRange.endWordIndex - sectionRange.startWordIndex + 1;
+  const chapterPercent = Math.max(
+    0,
+    Math.min(100, Math.round((currentChapter / totalChapter) * 100)),
+  );
+  elements.progressText.textContent =
+    `${currentBook} / ${totalBook} · ${bookPercent}% · Kap ${chapterPercent}%`;
+}
+
+function renderPlayButton() {
+  elements.playButton.classList.remove("is-playing", "is-ready", "is-restart");
+
+  if (!hasLoadedText()) {
+    elements.playButton.textContent = "Start";
+    elements.playButton.classList.add("is-ready");
+    return;
+  }
+
+  if (state.isPlaying) {
+    elements.playButton.textContent = "Pause";
+    elements.playButton.classList.add("is-playing");
+    return;
+  }
+
+  if (state.reachedEnd) {
+    elements.playButton.textContent = "Start på nytt";
+    elements.playButton.classList.add("is-restart");
+    return;
+  }
+
+  elements.playButton.textContent = "Start";
+  elements.playButton.classList.add("is-ready");
 }
 
 function renderSectionNav() {
@@ -668,6 +681,14 @@ function renderSectionNav() {
 
 function renderSpeedControls() {
   elements.speedControls.classList.toggle("is-collapsed", !state.speedControlsExpanded);
+}
+
+function updateAppTitle() {
+  const title = state.progressOriginLabel
+    ? `Leseapp - ${state.progressOriginLabel}`
+    : "Leseapp";
+  elements.appTitle.textContent = title;
+  document.title = title;
 }
 
 function renderContext() {
