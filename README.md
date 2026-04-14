@@ -22,6 +22,7 @@ Den nåværende versjonen støtter:
 - justerbar hastighet i `WPM`
 - skjult WPM-slider som åpnes ved trykk
 - hopp til forrige og neste kapittel når teksten har kapitler
+- progresjon innenfor gjeldende kapittel
 - automatisk kontekstpanel ved pause
 - utvidbart tekstvindu for å bla i teksten før start
 - klikkbare ord i tekstvinduet for å velge ny leseplass

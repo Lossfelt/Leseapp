@@ -159,11 +159,7 @@ function applyLoadedDocument(file, result) {
     return;
   }
 
-  const fileKind = result.format.toUpperCase();
-  const savedNote = saved ? "Fortsetter fra sist lagrede posisjon." : "Starter fra begynnelsen.";
-  elements.fileMeta.textContent =
-    `${state.progressOriginLabel} · ${fileKind} · ${state.words.length} ord · ` +
-    `${state.paragraphs.length} avsnitt · ${savedNote}`;
+  elements.fileMeta.textContent = file.name;
 
   saveProgress();
   render();
@@ -431,7 +427,7 @@ function pausePlayback({ showContext = true } = {}) {
   state.isPreviewing = false;
 
   if (showContext) {
-    state.contextScrollToCurrent = !state.contextExpanded;
+    state.contextScrollToCurrent = false;
     renderContext();
   }
 
@@ -645,10 +641,12 @@ function renderProgress() {
     return;
   }
 
-  const current = state.currentIndex + 1;
-  const total = state.words.length;
-  elements.progressText.textContent =
-    `${current} / ${total} ord · ${Math.round((current / total) * 100)}%`;
+  const sectionRange = getCurrentSectionRange();
+  const current = state.currentIndex - sectionRange.startWordIndex + 1;
+  const total = sectionRange.endWordIndex - sectionRange.startWordIndex + 1;
+  const percent = Math.max(0, Math.min(100, Math.round((current / total) * 100)));
+  const scopeLabel = sectionRange.isChapter ? "i kapittel" : "i tekst";
+  elements.progressText.textContent = `${current} / ${total} ${scopeLabel} · ${percent}%`;
 }
 
 function renderSectionNav() {
@@ -803,6 +801,28 @@ function getCurrentSectionIndex() {
   }
 
   return currentSectionIndex;
+}
+
+function getCurrentSectionRange() {
+  if (!state.sections.length) {
+    return {
+      endWordIndex: state.words.length - 1,
+      isChapter: false,
+      label: "",
+      startWordIndex: 0,
+    };
+  }
+
+  const currentSectionIndex = getCurrentSectionIndex();
+  const currentSection = state.sections[currentSectionIndex];
+  const nextSection = state.sections[currentSectionIndex + 1];
+
+  return {
+    endWordIndex: nextSection ? nextSection.wordIndex - 1 : state.words.length - 1,
+    isChapter: true,
+    label: currentSection.label,
+    startWordIndex: currentSection.wordIndex,
+  };
 }
 
 function buildExpandedContextHint() {

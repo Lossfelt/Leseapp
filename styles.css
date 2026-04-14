@@ -69,8 +69,7 @@ code {
   color: var(--accent);
 }
 
-.app-title,
-.context-header h2 {
+.app-title {
   margin: 0;
   font-family: var(--font-reading);
   font-weight: 600;
@@ -102,6 +101,10 @@ code {
 .file-card,
 .speed-card {
   padding: 22px;
+}
+
+.speed-card {
+  position: relative;
 }
 
 .file-picker {
@@ -145,12 +148,15 @@ code {
 }
 
 .speed-header {
-  margin-bottom: 14px;
   font-weight: 700;
 }
 
 .speed-toggle {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -158,16 +164,39 @@ code {
   cursor: pointer;
 }
 
+.speed-label {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.speed-reading {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
 .speed-controls {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  top: calc(100% + 12px);
+  z-index: 20;
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(78, 62, 47, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 252, 247, 0.98);
+  box-shadow: 0 18px 36px rgba(80, 53, 28, 0.16);
   overflow: hidden;
-  max-height: 72px;
+  max-height: 96px;
   opacity: 1;
-  transition: max-height 180ms ease, opacity 180ms ease, margin-top 180ms ease;
+  transition: max-height 180ms ease, opacity 180ms ease, transform 180ms ease;
+  transform-origin: top center;
 }
 
 .speed-controls.is-collapsed {
   max-height: 0;
   opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
 }
 
 #speedSlider {
@@ -507,6 +536,24 @@ code {
 
   .control-panel {
     grid-template-columns: minmax(0, 1fr) 140px;
+  }
+
+  .speed-card {
+    position: static;
+  }
+
+  .speed-controls {
+    position: absolute;
+    left: 50%;
+    right: auto;
+    top: calc(100% + 12px);
+    width: calc(100vw - 24px);
+    padding: 18px 20px 16px;
+    transform: translateX(-50%);
+  }
+
+  .speed-controls.is-collapsed {
+    transform: translate(-50%, -6px);
   }
 
   .reader-stage {
