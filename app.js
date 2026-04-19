@@ -42,6 +42,7 @@ const elements = {
   contextHint: document.querySelector("#contextHint"),
   contextPanel: document.querySelector("#contextPanel"),
   contextToggle: document.querySelector("#contextToggle"),
+  darkModeToggle: document.querySelector("#darkModeToggle"),
   fileInput: document.querySelector("#fileInput"),
   nextWordDisplay: document.querySelector("#nextWordDisplay"),
   nextSectionButton: document.querySelector("#nextSectionButton"),
@@ -57,6 +58,25 @@ const elements = {
   statusText: document.querySelector("#statusText"),
   wordDisplay: document.querySelector("#wordDisplay"),
 };
+
+function initDarkMode() {
+  const isDark = localStorage.getItem("leseapp-dark-mode") === "true";
+  if (isDark) {
+    document.body.classList.add("dark");
+  }
+  updateDarkModeButton(isDark);
+  elements.darkModeToggle.addEventListener("click", toggleDarkMode);
+}
+
+function toggleDarkMode() {
+  const isDark = document.body.classList.toggle("dark");
+  localStorage.setItem("leseapp-dark-mode", String(isDark));
+  updateDarkModeButton(isDark);
+}
+
+function updateDarkModeButton(isDark) {
+  elements.darkModeToggle.textContent = isDark ? "Lyst modus" : "Mørk modus";
+}
 
 function init() {
   elements.speedSlider.value = String(DEFAULT_WPM);
@@ -78,6 +98,7 @@ function init() {
   document.addEventListener("keydown", handleSpaceKeyDown);
   document.addEventListener("keyup", handleSpaceKeyUp);
 
+  initDarkMode();
   render();
 }
 
