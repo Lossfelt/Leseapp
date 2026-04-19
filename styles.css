@@ -15,6 +15,18 @@
   --font-reading: Georgia, "Times New Roman", serif;
 }
 
+body.dark {
+  --bg: #18140f;
+  --panel: rgba(28, 22, 14, 0.96);
+  --panel-strong: #221b11;
+  --border: rgba(210, 185, 145, 0.13);
+  --text: #e2d8cc;
+  --muted: #9a8b79;
+  --accent: #d47a50;
+  --accent-soft: rgba(180, 90, 50, 0.2);
+  --shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -26,6 +38,7 @@ body {
 }
 
 body {
+  transition: background 300ms ease, color 300ms ease;
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.9), transparent 42%),
     linear-gradient(180deg, #f8f3ec 0%, #f1e8db 100%);
@@ -595,4 +608,75 @@ code {
   .section-label {
     text-align: left;
   }
+}
+
+.app-footer {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0 40px;
+}
+
+.dark-mode-toggle {
+  min-height: 40px;
+  padding: 0 20px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 140ms ease, background-color 140ms ease, transform 140ms ease;
+}
+
+.dark-mode-toggle:hover {
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+body.dark .dark-mode-toggle {
+  background: var(--panel-strong);
+}
+
+body.dark {
+  background:
+    radial-gradient(circle at top, rgba(60, 40, 20, 0.5), transparent 42%),
+    linear-gradient(180deg, #1e1810 0%, #13100b 100%);
+}
+
+body.dark .speed-controls {
+  background: rgba(28, 22, 14, 0.98);
+  border-color: rgba(210, 185, 145, 0.12);
+}
+
+body.dark .reader-stage {
+  background:
+    linear-gradient(180deg, rgba(30, 24, 15, 0.9), rgba(24, 19, 11, 0.88)),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 35px,
+      rgba(180, 150, 100, 0.03) 35px,
+      rgba(180, 150, 100, 0.03) 36px
+    );
+}
+
+body.dark .ghost-word {
+  color: rgba(226, 216, 204, 0.28);
+}
+
+body.dark .secondary-button {
+  background: rgba(40, 32, 20, 0.82);
+  border-color: rgba(210, 185, 145, 0.14);
+}
+
+body.dark .context-toggle {
+  background: rgba(40, 32, 20, 0.76);
+  border-color: rgba(210, 185, 145, 0.12);
+}
+
+body.dark .context-body {
+  background: var(--panel-strong);
+  color: rgba(226, 216, 204, 0.92);
+  border-color: rgba(210, 185, 145, 0.1);
 }
