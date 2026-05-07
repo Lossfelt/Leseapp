@@ -14,7 +14,7 @@
 
       <section class="control-panel">
         <div class="file-card">
-          <label class="file-picker" for="fileInput">Velg tekst eller EPUB</label>
+          <button id="importToggle" class="file-picker" type="button">Velg tekst eller EPUB</button>
           <input
             id="fileInput"
             type="file"
@@ -31,15 +31,65 @@
       </section>
 
       <div id="speedControls" class="speed-controls is-collapsed">
-        <input
-          id="speedSlider"
-          type="range"
-          min="120"
-          max="900"
-          value="320"
-          step="10"
-          aria-label="Juster lesehastighet"
-        />
+        <div class="settings-row">
+          <div class="settings-row-header">
+            <label for="speedSlider">Hastighet</label>
+            <strong id="speedSliderValue">320 WPM</strong>
+          </div>
+          <div class="slider-stepper">
+            <button class="step-button" type="button" data-step-target="speedSlider" data-step="-10" aria-label="Senk lesehastighet">-</button>
+            <input
+              id="speedSlider"
+              type="range"
+              min="120"
+              max="900"
+              value="320"
+              step="10"
+              aria-label="Juster lesehastighet"
+            />
+            <button class="step-button" type="button" data-step-target="speedSlider" data-step="10" aria-label="Øk lesehastighet">+</button>
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-header">
+            <label for="longWordBonusSlider">Ekstra tid på lange ord</label>
+            <strong id="longWordBonusValue">28%</strong>
+          </div>
+          <div class="slider-stepper">
+            <button class="step-button" type="button" data-step-target="longWordBonusSlider" data-step="-5" aria-label="Mindre ekstra tid på lange ord">-</button>
+            <input
+              id="longWordBonusSlider"
+              type="range"
+              min="0"
+              max="100"
+              value="28"
+              step="5"
+              aria-label="Juster ekstra tid på lange ord"
+            />
+            <button class="step-button" type="button" data-step-target="longWordBonusSlider" data-step="5" aria-label="Mer ekstra tid på lange ord">+</button>
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-header">
+            <label for="veryLongWordBonusSlider">Ekstra tid på veldig lange ord</label>
+            <strong id="veryLongWordBonusValue">38%</strong>
+          </div>
+          <div class="slider-stepper">
+            <button class="step-button" type="button" data-step-target="veryLongWordBonusSlider" data-step="-5" aria-label="Mindre ekstra tid på veldig lange ord">-</button>
+            <input
+              id="veryLongWordBonusSlider"
+              type="range"
+              min="0"
+              max="120"
+              value="38"
+              step="5"
+              aria-label="Juster ekstra tid på veldig lange ord"
+            />
+            <button class="step-button" type="button" data-step-target="veryLongWordBonusSlider" data-step="5" aria-label="Mer ekstra tid på veldig lange ord">+</button>
+          </div>
+        </div>
       </div>
 
       <section class="reader-card">
@@ -95,6 +145,35 @@
         Mørk modus
       </button>
     </footer>
+
+    <dialog id="importDialog" class="import-dialog">
+      <div class="import-dialog-content">
+        <div class="import-dialog-header">
+          <h2>Åpne tekst</h2>
+          <button id="closeImportDialog" class="icon-button" type="button" aria-label="Lukk">×</button>
+        </div>
+
+        <div class="import-actions">
+          <button id="chooseFileButton" class="secondary-button" type="button">
+            Velg fil
+          </button>
+        </div>
+
+        <label class="paste-label" for="pastedTextInput">Lim inn tekst</label>
+        <textarea
+          id="pastedTextInput"
+          class="paste-input"
+          rows="10"
+          placeholder="Lim inn teksten du vil lese her."
+        ></textarea>
+
+        <div class="import-footer">
+          <button id="loadPastedTextButton" class="play-button import-submit" type="button">
+            Bruk innlimt tekst
+          </button>
+        </div>
+      </div>
+    </dialog>
 
     <script src="./vendor/jszip.min.js"></script>
     <script src="./reading-model.js"></script>

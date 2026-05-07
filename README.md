@@ -14,21 +14,23 @@ Den nåværende versjonen støtter:
 
 - lokale `txt`-filer
 - lokale `epub`-filer
+- innlimt tekst direkte i appen
 - ett ord av gangen i et fast visningsområde
 - `1` sekund oppstartsvisning før lesingen starter
 - `Start / Pause` med knapp
 - hold-for-lesing med mus
 - hold-for-lesing med `Space`
 - justerbar hastighet i `WPM`
-- skjult WPM-slider som åpnes ved trykk
+- skjult innstillingspanel som åpnes ved trykk på hastighet
+- pluss/minus-knapper for presis sliderjustering
+- justerbar ekstra tid på lange og veldig lange ord
 - hopp til forrige og neste kapittel når teksten har kapitler
 - progresjon innenfor gjeldende kapittel
 - automatisk kontekstpanel ved pause
 - utvidbart tekstvindu for å bla i teksten før start
 - klikkbare ord i tekstvinduet for å velge ny leseplass
 - markering av gjeldende ord i kontekstpanelet
-- lokal lagring av hastighet, posisjon og innstillinger per fil
-- ekstra tid på lange ord
+- lokal lagring av hastighet og posisjon per fil, og innstillinger globalt
 - offline bruk uten byggesteg
 
 ## Hvorfor kontekstpanelet finnes
@@ -67,7 +69,10 @@ Det betyr at Netlify kan publisere direkte fra repo-roten.
 - Trykk kort `Space` for start/pause
 - Hold inne `Space` for å lese bare mens tasten holdes inne
 - Juster hastigheten med slideren
-- Trykk på `WPM` for å åpne eller skjule slideren
+- Trykk på `Hastighet` for å åpne eller skjule innstillingspanelet
+- Bruk `+` og `-` rundt sliderne for presis justering
+- Juster ekstra tid på lange og veldig lange ord i samme panel
+- Trykk på `Velg tekst eller EPUB` for å lime inn tekst eller velge fil
 - Bruk kapittelknappene for å hoppe mellom kapitler når de finnes
 - Slipp knapp eller `Space` for å pause og vise kontekstpanelet
 - Utvid tekstvinduet og trykk på et ord for å hoppe til ny startplass

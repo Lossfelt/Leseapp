@@ -1,10 +1,11 @@
 const STORAGE_PREFIX = "leseapp-progress-v1";
+const SETTINGS_STORAGE_KEY = "leseapp-settings-v1";
 const DEFAULT_WPM = 320;
 const STARTUP_PREVIEW_MS = 1000;
 const HOLD_THRESHOLD_MS = 180;
 const EXPANDED_CONTEXT_CHUNK_SIZE = 24;
-const LONG_WORD_BONUS_MULTIPLIER = 0.28;
-const VERY_LONG_WORD_BONUS_MULTIPLIER = 0.38;
+const DEFAULT_LONG_WORD_BONUS_PERCENT = 28;
+const DEFAULT_VERY_LONG_WORD_BONUS_PERCENT = 38;
 const SENTENCE_END_BONUS_MULTIPLIER = 0.72;
 const PARAGRAPH_END_BONUS_MULTIPLIER = 1.35;
 
@@ -20,6 +21,7 @@ const state = {
   isLoading: false,
   isPlaying: false,
   isPreviewing: false,
+  longWordBonusPercent: DEFAULT_LONG_WORD_BONUS_PERCENT,
   paragraphs: [],
   pointerHoldActive: false,
   pointerHoldTimer: null,
@@ -34,18 +36,27 @@ const state = {
   timerId: null,
   words: [],
   wpm: DEFAULT_WPM,
+  veryLongWordBonusPercent: DEFAULT_VERY_LONG_WORD_BONUS_PERCENT,
 };
 
 const elements = {
   appTitle: document.querySelector("#appTitle"),
+  chooseFileButton: document.querySelector("#chooseFileButton"),
+  closeImportDialog: document.querySelector("#closeImportDialog"),
   contextBody: document.querySelector("#contextBody"),
   contextHint: document.querySelector("#contextHint"),
   contextPanel: document.querySelector("#contextPanel"),
   contextToggle: document.querySelector("#contextToggle"),
   darkModeToggle: document.querySelector("#darkModeToggle"),
   fileInput: document.querySelector("#fileInput"),
+  importDialog: document.querySelector("#importDialog"),
+  importToggle: document.querySelector("#importToggle"),
+  loadPastedTextButton: document.querySelector("#loadPastedTextButton"),
+  longWordBonusSlider: document.querySelector("#longWordBonusSlider"),
+  longWordBonusValue: document.querySelector("#longWordBonusValue"),
   nextWordDisplay: document.querySelector("#nextWordDisplay"),
   nextSectionButton: document.querySelector("#nextSectionButton"),
+  pastedTextInput: document.querySelector("#pastedTextInput"),
   playButton: document.querySelector("#playButton"),
   prevSectionButton: document.querySelector("#prevSectionButton"),
   prevWordDisplay: document.querySelector("#prevWordDisplay"),
@@ -53,8 +64,11 @@ const elements = {
   sectionLabel: document.querySelector("#sectionLabel"),
   speedControls: document.querySelector("#speedControls"),
   speedSlider: document.querySelector("#speedSlider"),
+  speedSliderValue: document.querySelector("#speedSliderValue"),
   speedToggle: document.querySelector("#speedToggle"),
   speedValue: document.querySelector("#speedValue"),
+  veryLongWordBonusSlider: document.querySelector("#veryLongWordBonusSlider"),
+  veryLongWordBonusValue: document.querySelector("#veryLongWordBonusValue"),
   statusText: document.querySelector("#statusText"),
   wordDisplay: document.querySelector("#wordDisplay"),
 };
@@ -79,12 +93,18 @@ function updateDarkModeButton(isDark) {
 }
 
 function init() {
-  elements.speedSlider.value = String(DEFAULT_WPM);
-  elements.speedValue.textContent = `${DEFAULT_WPM} WPM`;
+  loadGlobalSettings();
+  syncSettingsControls();
 
+  elements.chooseFileButton.addEventListener("click", handleChooseFileClick);
+  elements.closeImportDialog.addEventListener("click", closeImportDialog);
   elements.contextBody.addEventListener("click", handleContextBodyClick);
   elements.contextToggle.addEventListener("click", handleContextToggleClick);
   elements.fileInput.addEventListener("change", handleFileSelection);
+  elements.importDialog.addEventListener("click", handleImportDialogBackdropClick);
+  elements.importToggle.addEventListener("click", openImportDialog);
+  elements.loadPastedTextButton.addEventListener("click", handlePastedTextLoad);
+  elements.longWordBonusSlider.addEventListener("input", handleLongWordBonusChange);
   elements.nextSectionButton.addEventListener("click", () => jumpToAdjacentSection(1));
   elements.playButton.addEventListener("click", handlePlayButtonClick);
   elements.playButton.addEventListener("pointercancel", handlePlayButtonPointerUp);
@@ -94,6 +114,8 @@ function init() {
   elements.prevSectionButton.addEventListener("click", () => jumpToAdjacentSection(-1));
   elements.speedSlider.addEventListener("input", handleSpeedChange);
   elements.speedToggle.addEventListener("click", handleSpeedToggleClick);
+  elements.speedControls.addEventListener("click", handleSliderStepperClick);
+  elements.veryLongWordBonusSlider.addEventListener("input", handleVeryLongWordBonusChange);
 
   document.addEventListener("keydown", handleSpaceKeyDown);
   document.addEventListener("keyup", handleSpaceKeyUp);
@@ -115,8 +137,65 @@ async function handleFileSelection(event) {
   render();
 
   try {
+    closeImportDialog();
     const result = await loadDocumentFile(file);
-    applyLoadedDocument(file, result);
+    applyLoadedDocument(result);
+  } catch (error) {
+    resetDocument();
+    state.errorMessage = formatErrorMessage(error);
+  } finally {
+    state.isLoading = false;
+    render();
+  }
+}
+
+function openImportDialog() {
+  if (typeof elements.importDialog.showModal === "function") {
+    elements.importDialog.showModal();
+    elements.pastedTextInput.focus();
+    return;
+  }
+
+  elements.importDialog.setAttribute("open", "");
+  elements.pastedTextInput.focus();
+}
+
+function closeImportDialog() {
+  if (!elements.importDialog.open) {
+    return;
+  }
+
+  elements.importDialog.close();
+}
+
+function handleImportDialogBackdropClick(event) {
+  if (event.target === elements.importDialog) {
+    closeImportDialog();
+  }
+}
+
+function handleChooseFileClick() {
+  elements.fileInput.click();
+}
+
+async function handlePastedTextLoad() {
+  const text = elements.pastedTextInput.value.trim();
+
+  if (!text) {
+    state.errorMessage = "Lim inn tekst før du starter.";
+    render();
+    return;
+  }
+
+  pausePlayback({ showContext: false });
+  resetDocument();
+  state.isLoading = true;
+  render();
+
+  try {
+    const result = await loadPastedText(text);
+    closeImportDialog();
+    applyLoadedDocument(result);
   } catch (error) {
     resetDocument();
     state.errorMessage = formatErrorMessage(error);
@@ -149,7 +228,20 @@ async function loadDocumentFile(file) {
   };
 }
 
-function applyLoadedDocument(file, result) {
+async function loadPastedText(text) {
+  const fileKey = await createStableTextKey(text);
+  const model = window.LeseappReadingModel.createModelFromText(text);
+
+  return {
+    fileKey,
+    format: "pasted-text",
+    metadata: {},
+    model,
+    originLabel: buildPastedTextLabel(text),
+  };
+}
+
+function applyLoadedDocument(result) {
   const saved = loadProgress(result.fileKey);
   const { model } = result;
 
@@ -170,7 +262,7 @@ function applyLoadedDocument(file, result) {
   elements.contextToggle.disabled = !state.words.length;
   elements.playButton.disabled = !state.words.length;
   elements.speedSlider.value = String(state.wpm);
-  elements.speedValue.textContent = `${state.wpm} WPM`;
+  renderSettingsValues();
 
   if (!state.words.length) {
     state.errorMessage = "Fant ingen ord å vise fra filen.";
@@ -184,9 +276,42 @@ function applyLoadedDocument(file, result) {
 
 function handleSpeedChange(event) {
   state.wpm = clampWpm(Number(event.target.value));
-  elements.speedValue.textContent = `${state.wpm} WPM`;
+  renderSettingsValues();
   saveProgress();
   renderStatus();
+}
+
+function handleLongWordBonusChange(event) {
+  state.longWordBonusPercent = clampPercent(Number(event.target.value), 0, 100);
+  renderSettingsValues();
+  saveGlobalSettings();
+}
+
+function handleVeryLongWordBonusChange(event) {
+  state.veryLongWordBonusPercent = clampPercent(Number(event.target.value), 0, 120);
+  renderSettingsValues();
+  saveGlobalSettings();
+}
+
+function handleSliderStepperClick(event) {
+  const button = event.target.closest("[data-step-target]");
+
+  if (!button) {
+    return;
+  }
+
+  const slider = document.querySelector(`#${button.dataset.stepTarget}`);
+  const step = Number(button.dataset.step);
+
+  if (!slider || !Number.isFinite(step)) {
+    return;
+  }
+
+  const current = Number(slider.value);
+  const min = Number(slider.min);
+  const max = Number(slider.max);
+  slider.value = String(Math.max(min, Math.min(max, current + step)));
+  slider.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 function handleSpeedToggleClick() {
@@ -316,6 +441,14 @@ function handleSpaceKeyDown(event) {
     return;
   }
 
+  if (elements.importDialog.open) {
+    return;
+  }
+
+  if (isEditableTarget(event.target)) {
+    return;
+  }
+
   event.preventDefault();
 
   if (state.spaceDown) {
@@ -337,6 +470,14 @@ function handleSpaceKeyDown(event) {
 
 function handleSpaceKeyUp(event) {
   if (event.code !== "Space") {
+    return;
+  }
+
+  if (elements.importDialog.open) {
+    return;
+  }
+
+  if (isEditableTarget(event.target)) {
     return;
   }
 
@@ -473,11 +614,11 @@ function getWordDelay(word) {
   let extraDelay = 0;
 
   if (word.raw.length >= 9) {
-    extraDelay += scaledPause(baseDelay, LONG_WORD_BONUS_MULTIPLIER, 24, 120);
+    extraDelay += scaledPause(baseDelay, state.longWordBonusPercent / 100, 24, 120);
   }
 
   if (word.raw.length >= 13) {
-    extraDelay += scaledPause(baseDelay, VERY_LONG_WORD_BONUS_MULTIPLIER, 34, 170);
+    extraDelay += scaledPause(baseDelay, state.veryLongWordBonusPercent / 100, 34, 170);
   }
 
   if (/[.!?][)"'\]]*$/.test(word.raw)) {
@@ -548,6 +689,42 @@ function saveProgress() {
   }
 }
 
+function loadGlobalSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    const settings = raw ? JSON.parse(raw) : null;
+
+    state.longWordBonusPercent = clampPercent(
+      settings?.longWordBonusPercent ?? DEFAULT_LONG_WORD_BONUS_PERCENT,
+      0,
+      100,
+    );
+    state.veryLongWordBonusPercent = clampPercent(
+      settings?.veryLongWordBonusPercent ?? DEFAULT_VERY_LONG_WORD_BONUS_PERCENT,
+      0,
+      120,
+    );
+  } catch {
+    state.longWordBonusPercent = DEFAULT_LONG_WORD_BONUS_PERCENT;
+    state.veryLongWordBonusPercent = DEFAULT_VERY_LONG_WORD_BONUS_PERCENT;
+  }
+}
+
+function saveGlobalSettings() {
+  try {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        longWordBonusPercent: state.longWordBonusPercent,
+        veryLongWordBonusPercent: state.veryLongWordBonusPercent,
+        updatedAt: Date.now(),
+      }),
+    );
+  } catch {
+    // Ignore storage errors in the prototype.
+  }
+}
+
 function clampIndex(index, wordCount) {
   if (!Number.isFinite(index) || wordCount === 0) {
     return 0;
@@ -562,6 +739,14 @@ function clampWpm(value) {
   }
 
   return Math.max(120, Math.min(900, Math.round(value)));
+}
+
+function clampPercent(value, min, max) {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+
+  return Math.max(min, Math.min(max, Math.round(value)));
 }
 
 function hasLoadedText() {
@@ -704,6 +889,20 @@ function renderSpeedControls() {
   elements.speedControls.classList.toggle("is-collapsed", !state.speedControlsExpanded);
 }
 
+function syncSettingsControls() {
+  elements.speedSlider.value = String(state.wpm);
+  elements.longWordBonusSlider.value = String(state.longWordBonusPercent);
+  elements.veryLongWordBonusSlider.value = String(state.veryLongWordBonusPercent);
+  renderSettingsValues();
+}
+
+function renderSettingsValues() {
+  elements.speedValue.textContent = `${state.wpm} WPM`;
+  elements.speedSliderValue.textContent = `${state.wpm} WPM`;
+  elements.longWordBonusValue.textContent = `${state.longWordBonusPercent}%`;
+  elements.veryLongWordBonusValue.textContent = `${state.veryLongWordBonusPercent}%`;
+}
+
 function updateAppTitle() {
   const title = state.progressOriginLabel
     ? `Leseapp - ${state.progressOriginLabel}`
@@ -801,6 +1000,18 @@ function updateHeldVisualState() {
 
 function formatErrorMessage(error) {
   return error instanceof Error ? error.message : "Ukjent feil ved åpning av filen.";
+}
+
+function buildPastedTextLabel(text) {
+  const normalized = window.LeseappReadingModel.normalizeWhitespace(text);
+  const preview = normalized.slice(0, 36);
+  return preview ? `Innlimt tekst: ${preview}${normalized.length > 36 ? "..." : ""}` : "Innlimt tekst";
+}
+
+function isEditableTarget(target) {
+  return Boolean(
+    target?.closest?.("input, textarea, select, [contenteditable='true']"),
+  );
 }
 
 function initializeExpandedContextRange(centerParagraphIndex) {
@@ -929,6 +1140,22 @@ async function createStableFileKey(file) {
     return `${prefix}:${hash}`;
   } catch {
     return prefix;
+  }
+}
+
+async function createStableTextKey(text) {
+  const prefix = `${STORAGE_PREFIX}:pasted-text:${text.length}`;
+
+  try {
+    const encoded = new TextEncoder().encode(text);
+    const digest = await crypto.subtle.digest("SHA-256", encoded);
+    const hash = Array.from(new Uint8Array(digest))
+      .slice(0, 12)
+      .map((value) => value.toString(16).padStart(2, "0"))
+      .join("");
+    return `${prefix}:${hash}`;
+  } catch {
+    return `${prefix}:${text.slice(0, 48)}`;
   }
 }
 

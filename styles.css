@@ -47,7 +47,8 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -128,6 +129,7 @@ code {
   justify-content: center;
   min-height: 46px;
   padding: 0 18px;
+  border: 0;
   border-radius: 999px;
   background: var(--accent);
   color: #fffaf5;
@@ -195,13 +197,13 @@ code {
   top: max(76px, calc(env(safe-area-inset-top) + 12px));
   z-index: 2000;
   width: min(560px, calc(100vw - 24px));
-  padding: 18px 18px 16px;
+  padding: 18px;
   border: 1px solid rgba(78, 62, 47, 0.12);
   border-radius: 18px;
   background: rgba(255, 252, 247, 0.98);
   box-shadow: 0 18px 36px rgba(80, 53, 28, 0.16);
-  overflow: hidden;
-  max-height: 96px;
+  overflow: auto;
+  max-height: min(70vh, 420px);
   opacity: 1;
   transition: max-height 180ms ease, opacity 180ms ease, transform 180ms ease;
   transform: translateX(-50%);
@@ -215,9 +217,55 @@ code {
   transform: translate(-50%, -6px);
 }
 
-#speedSlider {
+.settings-row + .settings-row {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(78, 62, 47, 0.1);
+}
+
+.settings-row-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.settings-row-header strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.slider-stepper {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 38px;
+  gap: 10px;
+  align-items: center;
+}
+
+.slider-stepper input[type="range"] {
   width: 100%;
   accent-color: var(--accent);
+}
+
+.step-button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(78, 62, 47, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text);
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.step-button:hover {
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .muted {
@@ -634,6 +682,94 @@ code {
   transform: translateY(-1px);
 }
 
+.import-dialog {
+  width: min(620px, calc(100vw - 24px));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel-strong);
+  color: var(--text);
+  box-shadow: 0 24px 70px rgba(80, 53, 28, 0.22);
+}
+
+.import-dialog::backdrop {
+  background: rgba(24, 18, 12, 0.42);
+}
+
+.import-dialog-content {
+  padding: 22px;
+}
+
+.import-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.import-dialog-header h2 {
+  margin: 0;
+  font-family: var(--font-reading);
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+.icon-button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(78, 62, 47, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--text);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.import-actions {
+  display: flex;
+  margin-bottom: 18px;
+}
+
+.paste-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.paste-input {
+  display: block;
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  padding: 14px;
+  border: 1px solid rgba(78, 62, 47, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.paste-input:focus {
+  outline: 2px solid rgba(180, 90, 50, 0.28);
+  outline-offset: 2px;
+}
+
+.import-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.import-submit {
+  min-width: 180px;
+  min-height: 48px;
+  box-shadow: none;
+}
+
 body.dark .dark-mode-toggle {
   background: var(--panel-strong);
 }
@@ -647,6 +783,25 @@ body.dark {
 body.dark .speed-controls {
   background: rgba(28, 22, 14, 0.98);
   border-color: rgba(210, 185, 145, 0.12);
+}
+
+body.dark .settings-row + .settings-row {
+  border-top-color: rgba(210, 185, 145, 0.1);
+}
+
+body.dark .step-button,
+body.dark .icon-button {
+  background: rgba(40, 32, 20, 0.82);
+  border-color: rgba(210, 185, 145, 0.14);
+}
+
+body.dark .import-dialog {
+  background: var(--panel-strong);
+}
+
+body.dark .paste-input {
+  background: rgba(24, 19, 11, 0.88);
+  border-color: rgba(210, 185, 145, 0.14);
 }
 
 body.dark .reader-stage {
