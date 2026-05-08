@@ -117,6 +117,7 @@ function init() {
   elements.speedControls.addEventListener("click", handleSliderStepperClick);
   elements.veryLongWordBonusSlider.addEventListener("input", handleVeryLongWordBonusChange);
 
+  document.addEventListener("click", handleDocumentClick);
   document.addEventListener("keydown", handleSpaceKeyDown);
   document.addEventListener("keyup", handleSpaceKeyUp);
 
@@ -316,6 +317,22 @@ function handleSliderStepperClick(event) {
 
 function handleSpeedToggleClick() {
   state.speedControlsExpanded = !state.speedControlsExpanded;
+  renderSpeedControls();
+}
+
+function handleDocumentClick(event) {
+  if (!state.speedControlsExpanded) {
+    return;
+  }
+
+  if (
+    elements.speedControls.contains(event.target) ||
+    elements.speedToggle.contains(event.target)
+  ) {
+    return;
+  }
+
+  state.speedControlsExpanded = false;
   renderSpeedControls();
 }
 
