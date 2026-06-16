@@ -210,8 +210,14 @@ async function loadDocumentFile(file) {
   const fileKey = await createStableFileKey(file);
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
 
-  if (extension === "epub") {
-    const result = await window.LeseappEpub.loadFile(file);
+  const loader = {
+    epub: window.LeseappEpub,
+    pdf: window.LeseappPdf,
+    docx: window.LeseappDocx,
+  }[extension];
+
+  if (loader) {
+    const result = await loader.loadFile(file);
     return {
       fileKey,
       ...result,
@@ -1144,36 +1150,27 @@ function scrollParagraphIntoView(paragraphIndex, block) {
   });
 }
 
-async function createStableFileKey(file) {
-  const prefix = `${STORAGE_PREFIX}:${file.name}:${file.size}`;
-
+async function digestKey(prefix, bytes, fallback) {
   try {
-    const slice = await file.slice(0, 65536).arrayBuffer();
-    const digest = await crypto.subtle.digest("SHA-256", slice);
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
     const hash = Array.from(new Uint8Array(digest))
       .slice(0, 12)
       .map((value) => value.toString(16).padStart(2, "0"))
       .join("");
     return `${prefix}:${hash}`;
   } catch {
-    return prefix;
+    return fallback;
   }
+}
+
+async function createStableFileKey(file) {
+  const prefix = `${STORAGE_PREFIX}:${file.name}:${file.size}`;
+  return digestKey(prefix, await file.slice(0, 65536).arrayBuffer(), prefix);
 }
 
 async function createStableTextKey(text) {
   const prefix = `${STORAGE_PREFIX}:pasted-text:${text.length}`;
-
-  try {
-    const encoded = new TextEncoder().encode(text);
-    const digest = await crypto.subtle.digest("SHA-256", encoded);
-    const hash = Array.from(new Uint8Array(digest))
-      .slice(0, 12)
-      .map((value) => value.toString(16).padStart(2, "0"))
-      .join("");
-    return `${prefix}:${hash}`;
-  } catch {
-    return `${prefix}:${text.slice(0, 48)}`;
-  }
+  return digestKey(prefix, new TextEncoder().encode(text), `${prefix}:${text.slice(0, 48)}`);
 }
 
 init();

@@ -14,11 +14,11 @@
 
       <section class="control-panel">
         <div class="file-card">
-          <button id="importToggle" class="file-picker" type="button">Velg tekst eller EPUB</button>
+          <button id="importToggle" class="file-picker" type="button">Velg tekst, EPUB, PDF eller DOCX</button>
           <input
             id="fileInput"
             type="file"
-            accept=".txt,.epub,text/plain,application/epub+zip"
+            accept=".txt,.epub,.pdf,.docx,text/plain,application/epub+zip,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           />
         </div>
 
@@ -176,8 +176,11 @@
     </dialog>
 
     <script src="./vendor/jszip.min.js"></script>
+    <script src="./vendor/pdf.min.js"></script>
     <script src="./reading-model.js"></script>
     <script src="./epub-loader.js"></script>
+    <script src="./docx-loader.js"></script>
+    <script src="./pdf-loader.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

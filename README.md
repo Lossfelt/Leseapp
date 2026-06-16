@@ -14,6 +14,8 @@ Den nåværende versjonen støtter:
 
 - lokale `txt`-filer
 - lokale `epub`-filer
+- lokale `pdf`-filer
+- lokale `docx`-filer
 - innlimt tekst direkte i appen
 - ett ord av gangen i et fast visningsområde
 - `1` sekund oppstartsvisning før lesingen starter
@@ -72,7 +74,7 @@ Det betyr at Netlify kan publisere direkte fra repo-roten.
 - Trykk på `Hastighet` for å åpne eller skjule innstillingspanelet
 - Bruk `+` og `-` rundt sliderne for presis justering
 - Juster ekstra tid på lange og veldig lange ord i samme panel
-- Trykk på `Velg tekst eller EPUB` for å lime inn tekst eller velge fil
+- Trykk på `Velg tekst, EPUB, PDF eller DOCX` for å lime inn tekst eller velge fil
 - Bruk kapittelknappene for å hoppe mellom kapitler når de finnes
 - Slipp knapp eller `Space` for å pause og vise kontekstpanelet
 - Utvid tekstvinduet og trykk på et ord for å hoppe til ny startplass
@@ -89,6 +91,18 @@ Av sikkerhetsgrunner kan ikke nettleseren automatisk åpne lokale filer igjen et
 
 Dette er bevisst holdt enkelt i første versjon. Prototypen prøver å få ut lesbar tekst, ikke å bevare full bok-layout, typografi eller alle EPUB-spesialtilfeller.
 
+## DOCX-støtte
+
+`DOCX` håndteres lokalt i nettleseren. En DOCX-fil er i praksis en zip-pakke, så appen gjenbruker `JSZip` til å pakke ut `word/document.xml`, leser avsnittene (`w:p`) og trekker ut teksten fra tekst-elementene (`w:t`). Avsnitt med overskriftsstil (`Heading`, `Tittel` med flere) brukes som kapittelmarkører.
+
+## PDF-støtte
+
+`PDF` håndteres lokalt i nettleseren med Mozilla `pdf.js`. Appen leser tekstlaget side for side og bygger avsnitt ut fra vertikale sprang mellom tekstlinjene. Kapittelmarkører gjenkjennes fra mønstre som `Kapittel`/`Chapter` i teksten.
+
+Skannede PDF-er uten tekstlag støttes ikke, siden det ikke finnes maskinlesbar tekst å hente ut.
+
+`pdf.js` kjører tekstuttrekket i en web worker. Det fungerer når appen serveres over `http` (Netlify eller en lokal server som beskrevet over). Hvis du åpner [index.html](./index.html) rett fra disk (`file://`), kan enkelte nettlesere (for eksempel Chrome) blokkere worker-lasting, og PDF vil ikke virke. `txt`, `epub` og `docx` fungerer uansett.
+
 ## Prosjektstruktur
 
 - [index.html](./index.html): struktur og innhold
@@ -96,9 +110,13 @@ Dette er bevisst holdt enkelt i første versjon. Prototypen prøver å få ut le
 - [app.js](./app.js): UI, kontroller, rytme og lagring
 - [reading-model.js](./reading-model.js): bygger ord- og avsnittsmodell
 - [epub-loader.js](./epub-loader.js): EPUB-innlasting og tekstuttrekk
+- [docx-loader.js](./docx-loader.js): DOCX-innlasting og tekstuttrekk
+- [pdf-loader.js](./pdf-loader.js): PDF-innlasting og tekstuttrekk
 - [MVP.md](./MVP.md): tidlig MVP-avklaring
 - [eksempel.txt](./eksempel.txt): enkel testfil
 - [test-fixtures/minimal.epub](./test-fixtures/minimal.epub): enkel test-EPUB
+- [test-fixtures/minimal.docx](./test-fixtures/minimal.docx): enkel test-DOCX
+- [test-fixtures/minimal.pdf](./test-fixtures/minimal.pdf): enkel test-PDF
 
 ## Rydding i repoet
 
@@ -107,7 +125,8 @@ Repoet inneholder også:
 - [LICENSE](./LICENSE)
 - [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)
 - [.gitignore](./.gitignore)
-- [vendor/jszip.min.js](./vendor/jszip.min.js) for lokal EPUB-støtte
+- [vendor/jszip.min.js](./vendor/jszip.min.js) for lokal EPUB- og DOCX-støtte
+- [vendor/pdf.min.js](./vendor/pdf.min.js) og [vendor/pdf.worker.min.js](./vendor/pdf.worker.min.js) for lokal PDF-støtte
 
 ## Naturlige neste steg
 
