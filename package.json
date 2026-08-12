@@ -1,0 +1,13 @@
+{
+  "name": "leseapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vanilla-JS leseapp",
+  "scripts": {
+    "build": "node scripts/copy-vendor.mjs"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "pdfjs-dist": "^6.2.108"
+  }
+}

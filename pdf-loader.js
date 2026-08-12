@@ -1,15 +1,28 @@
 (function () {
-  const WORKER_SRC = "./vendor/pdf.worker.min.js";
+  const WORKER_SRC = "./vendor/pdf.worker.min.mjs";
   // Vertikalt sprang større enn linjehøyden ganger denne faktoren tolkes som nytt avsnitt.
   const PARAGRAPH_GAP_FACTOR = 1.6;
 
+  // pdf.js 4+ er kun ESM (ingen UMD-bygg som setter window.pdfjsLib lenger), så
+  // biblioteket lastes med en dynamisk import() i stedet for en <script>-tag.
+  // Dynamisk import() krever ikke at dette skriptet selv er type="module".
+  let pdfjsLibPromise;
+
+  function getPdfjsLib() {
+    if (!pdfjsLibPromise) {
+      pdfjsLibPromise = import("./vendor/pdf.min.mjs");
+    }
+    return pdfjsLibPromise;
+  }
+
   async function loadFile(file) {
     assertDependencies();
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER_SRC;
+    const pdfjsLib = await getPdfjsLib();
+    pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER_SRC;
 
     const data = new Uint8Array(await file.arrayBuffer());
     // Deaktiverer eval for å forhindre JavaScript-kjøring fra ondsinnet PDF (GHSA-wgrm-67xf-hhpq).
-    const loadingTask = window.pdfjsLib.getDocument({ data, isEvalSupported: false });
+    const loadingTask = pdfjsLib.getDocument({ data, isEvalSupported: false });
     const pdf = await loadingTask.promise;
 
     const pageTexts = [];
@@ -84,10 +97,6 @@
   }
 
   function assertDependencies() {
-    if (!window.pdfjsLib) {
-      throw new Error("pdf.js er ikke lastet. PDF-støtte er derfor utilgjengelig.");
-    }
-
     if (!window.LeseappReadingModel) {
       throw new Error("Lesemodellen er ikke lastet.");
     }
