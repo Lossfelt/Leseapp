@@ -1,5 +1,7 @@
 [build]
+  command = "npm ci && npm run build"
   publish = "."
 
 [build.environment]
-  NODE_VERSION = "20"
+  # pdfjs-dist >= 6.2.108 krever Node >=22.13.0 (se node_modules/pdfjs-dist/package.json "engines").
+  NODE_VERSION = "22"
