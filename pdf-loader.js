@@ -8,7 +8,8 @@
     window.pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER_SRC;
 
     const data = new Uint8Array(await file.arrayBuffer());
-    const loadingTask = window.pdfjsLib.getDocument({ data });
+    // Deaktiverer eval for å forhindre JavaScript-kjøring fra ondsinnet PDF (GHSA-wgrm-67xf-hhpq).
+    const loadingTask = window.pdfjsLib.getDocument({ data, isEvalSupported: false });
     const pdf = await loadingTask.promise;
 
     const pageTexts = [];
