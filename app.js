@@ -2,7 +2,10 @@ const STORAGE_PREFIX = "leseapp-progress-v1";
 const SETTINGS_STORAGE_KEY = "leseapp-settings-v1";
 const DEFAULT_WPM = 320;
 const STARTUP_PREVIEW_MS = 1000;
-const HOLD_THRESHOLD_MS = 180;
+// Et bevisst knappetrykk varer ofte over 200 ms. Terskelen må derfor ligge klart
+// over det, ellers blir vanlige klikk tolket som hold-for-å-lese, og avspillingen
+// stopper i samme trykk som startet den.
+const HOLD_THRESHOLD_MS = 400;
 const EXPANDED_CONTEXT_CHUNK_SIZE = 24;
 const DEFAULT_LONG_WORD_BONUS_PERCENT = 28;
 const DEFAULT_VERY_LONG_WORD_BONUS_PERCENT = 38;
@@ -611,6 +614,9 @@ function pausePlayback({ showContext = true } = {}) {
   }
 
   renderStatus();
+  // Uten denne blir knappen stående på "Pause" etter at avspillingen er stoppet,
+  // fordi renderPlayButton() ellers bare nås gjennom den fulle render().
+  renderPlayButton();
   saveProgress();
 }
 
