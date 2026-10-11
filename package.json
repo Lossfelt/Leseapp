@@ -7,7 +7,7 @@
     "build": "node scripts/copy-vendor.mjs"
   },
   "dependencies": {
-    "jszip": "^3.10.1",
-    "pdfjs-dist": "^6.2.108"
+    "jszip": "^3.10.2",
+    "pdfjs-dist": "^6.3.289"
   }
 }
